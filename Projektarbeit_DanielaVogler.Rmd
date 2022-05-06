@@ -33,9 +33,97 @@ library(kableExtra)
 library(caret)
 ```
 
-```{r load data, include = FALSE}
-sepsis_data <- read.csv(here("data/Dataset.csv"))
+```{r loading data, include = FALSE}
+data_complete <- read.csv(here("data/Dataset.csv"))
+
+# Subsample ziehen, um die Datenmenge besser handhaben zu können
+set.seed(12345)
+
+n <- 0.1*length(unique(data_complete$Patient_ID))
+
+data_sample_index <- data_complete %>% 
+  distinct(Patient_ID) %>% 
+  sample_n(n)
+
+data_sample <- data_complete %>% 
+  filter(Patient_ID %in% data_sample_index$Patient_ID)
 
 var_info <- read.csv2(
   here("data/Datensatzbeschreibung.csv")
   )
+```
+
+```{r data exploration}
+summary(data_sample)
+str(data_sample)
+
+# Outcome pro Patient abspeichern
+outcome <- data_sample %>% 
+  group_by(Patient_ID) %>% 
+  mutate(Sepsis = max(SepsisLabel)) %>% 
+  ungroup() %>% 
+  select(Patient_ID, Sepsis) %>% 
+  unique()
+
+table(outcome$Sepsis)
+```
+
+```{r data cleaning}
+data_sample <- data_sample %>% 
+  mutate(Gender = factor(Gender, levels = c(0, 1), labels = c("W", "M")),
+         Unit1 = factor(Unit1, levels = c(0, 1), labels = c("nein", "ja")),
+         Unit2 = factor(Unit2, levels = c(0, 1), labels = c("nein", "ja")),
+         SepsisLabel = factor(SepsisLabel, levels = c(0, 1), 
+                              labels = c("negativ", "positiv")
+                              )
+  )
+
+outcome <- outcome %>% 
+  mutate(Sepsis = factor(Sepsis, levels = c(0, 1),
+                         labels = c("negativ", "positiv")
+                         )
+         )
+
+# Zur weiteren Verwendung wird jedem Datensatz der Outcome über den gesamten 
+# Zeitraum hinzugefügt
+data_sample <- merge(data_sample, outcome, by = "Patient_ID")
+```
+
+```{r creating baseline dataset}
+# Es sollen die Messwerte zur Stunde 1 verwendet werden, aber für den Outcome 
+# ist der Gesamtzeitraum entscheidend
+dataset1 <- data_sample %>% 
+  filter(Hour == 1) %>% 
+  select(-SepsisLabel)
+```
+
+```{r creating onset dataset}
+# Es sollen die Beobachtungen zum Zeitpunkt des ersten positiven Labels verwendet
+# werden, für Nicht-Sepsispatienten ein zufälliger Zeitpunkt
+data_pos <- data_sample %>% 
+  filter(SepsisLabel == "positiv") %>% 
+  group_by(Patient_ID) %>% 
+  mutate(ersteSepsisflag = min(Hour)) %>% 
+  ungroup() %>% 
+  filter(Hour == ersteSepsisflag) %>% 
+  select(-ersteSepsisflag)
+
+tmp_data_neg <- data_sample %>% 
+  filter(Sepsis == "negativ") %>% 
+  group_by(Patient_ID) %>% 
+  summarize(max_Hour = max(Hour),
+            selected_Hour = sample (c(1:max_Hour), size=1, replace =F)
+            )
+
+data_neg <- data_sample %>% 
+  filter(Sepsis == "negativ") %>% 
+  merge(., tmp_data_neg, by = "Patient_ID") %>% 
+  filter(Hour == selected_Hour) %>% 
+  select(-max_Hour, -selected_Hour)
+  
+  
+dataset2 <- union_all(data_pos, data_neg) %>% 
+  select(-SepsisLabel)
+
+rm(data_pos, data_neg, tmp_data_neg)
+```
