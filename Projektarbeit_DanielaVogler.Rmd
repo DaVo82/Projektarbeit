@@ -1,0 +1,41 @@
+---
+title: "Detektion von Sepsiserkrankungen in Intensivpatienten"
+subtitle: "Projektarbeit im Zertifikatsprogramm \"Medical Data Science\""
+author: "Daniela Vogler"
+date: "`r format(Sys.time(), '%d.%m.%Y')`"
+header-includes:
+  \renewcommand{\tablename}{Tabelle}
+  \renewcommand{\contentsname}{Inhalt}
+output: 
+  pdf_document:
+  toc: true
+  toc_depth: 2
+  keep_tex: yes
+  number_sections: true
+fontsize: 12pt
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  include = TRUE,
+  cache = TRUE,
+  fig.pos = "H")
+```
+
+```{r requirements, include = FALSE}
+library(tidyverse)
+library(here)
+library(kableExtra)
+library(caret)
+```
+
+```{r load data, include = FALSE}
+sepsis_data <- read.csv(here("data/Dataset.csv"))
+
+var_info <- read.csv2(
+  here("data/Datensatzbeschreibung.csv")
+  )
