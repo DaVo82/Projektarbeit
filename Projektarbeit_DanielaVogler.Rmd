@@ -21,7 +21,7 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
-  include = TRUE,
+  include = FALSE,
   cache = TRUE,
   fig.pos = "H")
 ```
@@ -33,13 +33,19 @@ library(kableExtra)
 library(caret)
 ```
 
-```{r loading data, include = FALSE}
+```{r session info, include = TRUE}
+sessioninfo::platform_info()$version
+subset(data.frame(sessioninfo::package_info()), attached==TRUE, 
+       c(package, loadedversion))
+```
+
+```{r loading data}
 data_complete <- read.csv(here("data/Dataset.csv"))
 
 # Subsample ziehen, um die Datenmenge besser handhaben zu können
 set.seed(12345)
 
-n <- 0.1*length(unique(data_complete$Patient_ID))
+n <- round(0.1*length(unique(data_complete$Patient_ID)))
 
 data_sample_index <- data_complete %>% 
   distinct(Patient_ID) %>% 
@@ -126,4 +132,149 @@ dataset2 <- union_all(data_pos, data_neg) %>%
   select(-SepsisLabel)
 
 rm(data_pos, data_neg, tmp_data_neg)
+```
+
+```{r creating regression dataset}
+# Anstelle der Vital- und Laborwerte sollen die patientenindividuellen Slopes
+# verwendet werden. Wenn ein Patient eine Sepsis entwickelt, wird nur der Zeitraum
+# bis zum ersten positiven Label betrachtet.
+
+# ToDo: Iteration über alle Variablen automatisieren
+data_pos <- data_sample %>% 
+  filter(SepsisLabel == "positiv") %>% 
+  group_by(Patient_ID) %>% 
+  mutate(ersteSepsisflag = min(Hour),
+         ICULOS_end = min(ICULOS)) %>% 
+  distinct(Patient_ID, ersteSepsisflag, ICULOS_end)
+
+data_sub <- data_sample %>% 
+  merge(., data_pos, by = "Patient_ID", all.x = TRUE) %>% 
+  filter(Sepsis == "negativ" | (ersteSepsisflag > 0 &  Hour <= ersteSepsisflag)) %>% 
+    # für ersteSepsisFlag = 0 lässt sich keine Entwicklung aufzeigen
+  group_by(Patient_ID) %>% 
+  mutate(ICULOS = case_when(!is.na(ICULOS_end) ~ ICULOS_end,
+                            TRUE ~ max(ICULOS))) %>% 
+  ungroup()
+
+patient_model_HR <- function(df) {
+  if (sum(!is.na(df$HR)) < 2) NA else lm(HR ~ Hour, data = df)$coeff[2]}
+patient_model_O2Sat <- function(df) {
+  if (sum(!is.na(df$O2Sat)) < 2) NA else lm(O2Sat ~ Hour, data = df)$coeff[2]}
+patient_model_Temp <- function(df) {
+  if (sum(!is.na(df$Temp)) < 2) NA else lm(Temp ~ Hour, data = df)$coeff[2]}
+patient_model_SBP <- function(df) {	
+  if (sum(!is.na(df$SBP)) < 2) NA else lm(SBP ~ Hour, data = df)$coeff[2]}
+patient_model_MAP <- function(df) {
+  if (sum(!is.na(df$MAP)) < 2) NA else lm(MAP ~ Hour, data = df)$coeff[2]}
+patient_model_DBP <- function(df) {
+  if (sum(!is.na(df$DBP)) < 2) NA else lm(DBP ~ Hour, data = df)$coeff[2]}
+patient_model_Resp <- function(df) {
+  if (sum(!is.na(df$Resp)) < 2) NA else lm(Resp ~ Hour, data = df)$coeff[2]}
+patient_model_EtCO2 <- function(df) {
+  if (sum(!is.na(df$EtCO2)) < 2) NA else lm(EtCO2 ~ Hour, data = df)$coeff[2]}
+patient_model_BaseExcess <- function(df) {
+  if (sum(!is.na(df$BaseExcess)) < 2) NA else lm(BaseExcess ~ Hour, data = df)$coeff[2]}
+patient_model_HCO3 <- function(df) {
+  if (sum(!is.na(df$HCO3)) < 2) NA else lm(HCO3 ~ Hour, data = df)$coeff[2]}
+patient_model_FiO2 <- function(df) {
+  if (sum(!is.na(df$FiO2)) < 2) NA else lm(FiO2 ~ Hour, data = df)$coeff[2]}
+patient_model_pH <- function(df) {
+  if (sum(!is.na(df$pH)) < 2) NA else lm(pH ~ Hour, data = df)$coeff[2]}
+patient_model_PaCO2 <- function(df) {
+  if (sum(!is.na(df$PaCO2)) < 2) NA else lm(PaCO2 ~ Hour, data = df)$coeff[2]}
+patient_model_SaO2 <- function(df) {
+  if (sum(!is.na(df$SaO2)) < 2) NA else lm(SaO2 ~ Hour, data = df)$coeff[2]}
+patient_model_AST <- function(df) {
+  if (sum(!is.na(df$AST)) < 2) NA else lm(AST ~ Hour, data = df)$coeff[2]}
+patient_model_BUN <- function(df) {
+  if (sum(!is.na(df$BUN)) < 2) NA else lm(BUN ~ Hour, data = df)$coeff[2]}
+patient_model_Alkalinephos <- function(df) {
+  if (sum(!is.na(df$Alkalinephos)) < 2) NA else lm(Alkalinephos ~ Hour, data = df)$coeff[2]}
+patient_model_Calcium <- function(df) {
+  if (sum(!is.na(df$Calcium)) < 2) NA else lm(Calcium ~ Hour, data = df)$coeff[2]}
+patient_model_Chloride <- function(df) {
+  if (sum(!is.na(df$Chloride)) < 2) NA else lm(Chloride ~ Hour, data = df)$coeff[2]}
+patient_model_Creatinine <- function(df) {
+  if (sum(!is.na(df$Creatinine)) < 2) NA else lm(Creatinine ~ Hour, data = df)$coeff[2]}
+patient_model_Bilirubin_direct <- function(df) {
+  if (sum(!is.na(df$Bilirubin_direct)) < 2) NA else lm(Bilirubin_direct ~ Hour, data = df)$coeff[2]}
+patient_model_Glucose <- function(df) {
+  if (sum(!is.na(df$Glucose)) < 2) NA else lm(Glucose ~ Hour, data = df)$coeff[2]}
+patient_model_Lactate <- function(df) {
+  if (sum(!is.na(df$Lactate)) < 2) NA else lm(Lactate ~ Hour, data = df)$coeff[2]}
+patient_model_Magnesium <- function(df) {
+  if (sum(!is.na(df$Magnesium)) < 2) NA else lm(Magnesium ~ Hour, data = df)$coeff[2]}
+patient_model_Phosphate <- function(df) {
+  if (sum(!is.na(df$Phosphate)) < 2) NA else lm(Phosphate ~ Hour, data = df)$coeff[2]}
+patient_model_Potassium <- function(df) {
+  if (sum(!is.na(df$Potassium)) < 2) NA else lm(Potassium ~ Hour, data = df)$coeff[2]}
+patient_model_Bilirubin_total <- function(df) {
+  if (sum(!is.na(df$Bilirubin_total)) < 2) NA else lm(Bilirubin_total ~ Hour, data = df)$coeff[2]}
+patient_model_TroponinI <- function(df) {
+  if (sum(!is.na(df$TroponinI)) < 2) NA else lm(TroponinI ~ Hour, data = df)$coeff[2]}
+patient_model_Hct <- function(df) {
+  if (sum(!is.na(df$Hct)) < 2) NA else lm(Hct ~ Hour, data = df)$coeff[2]}
+patient_model_Hgb <- function(df) {
+  if (sum(!is.na(df$Hgb)) < 2) NA else lm(Hgb ~ Hour, data = df)$coeff[2]}
+patient_model_PTT <- function(df) {
+  if (sum(!is.na(df$PTT)) < 2) NA else lm(PTT ~ Hour, data = df)$coeff[2]}
+patient_model_WBC <- function(df) {
+  if (sum(!is.na(df$WBC)) < 2) NA else lm(WBC ~ Hour, data = df)$coeff[2]}
+patient_model_Fibrinogen <- function(df) {
+  if (sum(!is.na(df$Fibrinogen)) < 2) NA else lm(Fibrinogen ~ Hour, data = df)$coeff[2]}
+patient_model_Platelets <- function(df) {
+  if (sum(!is.na(df$Platelets)) < 2) NA else lm(Platelets ~ Hour, data = df)$coeff[2]}
+
+by_patient <- data_sub %>% 
+  group_by(Patient_ID, ICULOS) %>% 
+  nest() %>% 
+  mutate(slope_HR = map(data, patient_model_HR),
+         slope_O2Sat = map(data, patient_model_O2Sat),
+         slope_Temp = map(data, patient_model_Temp),
+         slope_SBP = map(data, patient_model_SBP),
+         slope_MAP = map(data, patient_model_MAP),
+         slope_DBP = map(data, patient_model_DBP),
+         slope_Resp = map(data, patient_model_Resp),
+         slope_EtCO2 = map(data, patient_model_EtCO2),
+         slope_BaseExcess = map(data, patient_model_BaseExcess),
+         slope_HCO3 = map(data, patient_model_HCO3),
+         slope_FiO2 = map(data, patient_model_FiO2),
+         slope_pH = map(data, patient_model_pH),
+         slope_PaCO2 = map(data, patient_model_PaCO2),
+         slope_SaO2 = map(data, patient_model_SaO2),
+         slope_AST = map(data, patient_model_AST),
+         slope_BUN = map(data, patient_model_BUN),
+         slope_Alkalinephos = map(data, patient_model_Alkalinephos),
+         slope_Calcium = map(data, patient_model_Calcium),
+         slope_Chloride = map(data, patient_model_Chloride),
+         slope_Creatinine = map(data, patient_model_Creatinine),
+         slope_Bilirubin_direct = map(data, patient_model_Bilirubin_direct),
+         slope_Glucose = map(data, patient_model_Glucose),
+         slope_Lactate = map(data, patient_model_Lactate),
+         slope_Magnesium = map(data, patient_model_Magnesium),
+         slope_Phosphate = map(data, patient_model_Phosphate),
+         slope_Potassium = map(data, patient_model_Potassium),
+         slope_Bilirubin_total = map(data, patient_model_Bilirubin_total),
+         slope_TroponinI = map(data, patient_model_TroponinI),
+         slope_Hct = map(data, patient_model_Hct),
+         slope_Hgb = map(data, patient_model_Hgb),
+         slope_PTT = map(data, patient_model_PTT),
+         slope_WBC = map(data, patient_model_WBC),
+         slope_Fibrinogen = map(data, patient_model_Fibrinogen),
+         slope_Platelets = map(data, patient_model_Platelets))%>% 
+  unnest(c(slope_HR, slope_O2Sat, slope_Temp, slope_SBP, slope_MAP, slope_DBP, 
+           slope_Resp, slope_EtCO2, slope_BaseExcess, slope_HCO3, slope_FiO2, 
+           slope_pH, slope_PaCO2, slope_SaO2, slope_AST, slope_BUN, 
+           slope_Alkalinephos, slope_Calcium, slope_Chloride, slope_Creatinine, 
+           slope_Bilirubin_direct, slope_Glucose, slope_Lactate, slope_Magnesium, 
+           slope_Phosphate, slope_Potassium, slope_Bilirubin_total, slope_TroponinI, 
+           slope_Hct, slope_Hgb, slope_PTT, slope_WBC, slope_Fibrinogen, 
+           slope_Platelets)) %>%  
+  select(-data)
+
+dataset3 <- data_sample %>% 
+  distinct(Patient_ID, Age, Gender, Unit1, Unit2, HospAdmTime, Sepsis) %>%
+  merge(by_patient, by = "Patient_ID", all = FALSE) 
+
+rm(by_patient, data_sub, data_pos)
 ```
