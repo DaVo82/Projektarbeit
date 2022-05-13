@@ -8,10 +8,10 @@ Nr.;Variablenname;Datentyp;Beschreibung
 7;MAP;num;Mittlerer arterieller Druck (mmHg)
 8;DBP;num;Diastolischer Blutdruck (mmHg)
 9;Resp;num;Respirationsrate (Atemzüge/Minute)
-10;EtCO2;num;endtidaler Kohlendioxidwert (mmHg)
+10;EtCO2;num;Endtidaler Kohlendioxidwert (mmHg)
 11;BaseExcess;num;Base Excess (mmol/l)
 12;HCO3;num;Bicarbonat (mmol/l)
-13;FiO2;num;inspiratorische Sauerstofffraktion (%)
+13;FiO2;num;Inspiratorische Sauerstofffraktion
 14;pH;num;pH-Wert im Blut
 15;PaCO2;num;Kohlendioxidpartialdruck  (mmHg)
 16;SaO2;num;Arterielle Sauerstoffsättigung (%)

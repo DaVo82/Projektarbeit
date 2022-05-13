@@ -30,6 +30,9 @@ knitr::opts_chunk$set(
 library(tidyverse)
 library(here)
 library(kableExtra)
+library(grid)
+library(gridExtra)
+library(reshape)
 library(caret)
 ```
 
@@ -59,7 +62,7 @@ var_info <- read.csv2(
   )
 ```
 
-```{r data exploration}
+```{r data structure}
 summary(data_sample)
 str(data_sample)
 
@@ -74,7 +77,7 @@ outcome <- data_sample %>%
 table(outcome$Sepsis)
 ```
 
-```{r data cleaning}
+```{r data preparation}
 data_sample <- data_sample %>% 
   mutate(Gender = factor(Gender, levels = c(0, 1), labels = c("W", "M")),
          Unit1 = factor(Unit1, levels = c(0, 1), labels = c("nein", "ja")),
@@ -93,6 +96,80 @@ outcome <- outcome %>%
 # Zur weiteren Verwendung wird jedem Datensatz der Outcome über den gesamten 
 # Zeitraum hinzugefügt
 data_sample <- merge(data_sample, outcome, by = "Patient_ID")
+```
+
+```{r data correlation, fig.height=8, fig.width=12, message=TRUE, warning=FALSE}
+data_sample %>% 
+  select_if(is.numeric) %>%  
+  select(-Patient_ID, -X) %>% 
+  GGally::ggcorr(method = c("pairwise.complete.obs", "pearson"),
+         label = TRUE, label_size =2, label_alpha = TRUE) + 
+  labs(title = "Korrelationskoeffizienten nach Pearson")
+```
+
+Baum-basierte Methoden funktionieren auch bei starker Multikollinearität gut, da sukzessive einzelne Variablen für die Splits herangezogen werden. Liefert eine Variable keinen oder kaum Informationsgewinn, weil sie stark mit einer vorher bereits zum Split genutzten Variable korreliert, wird sie nicht verwendet. Daher müssen wir uns hier keine allzu großen Sorgen um die Korrelationen machen. Allerdings sollten starke Kollinearitäten später bei der Interpretation der Entscheidungskriterien berücksichtigt werden. Es ist möglich, dass nicht die eigentlich relevante Variable für einen Split herangezogen wird, sondern eine, die stark mit ihr korreliert ist.
+
+Bei Variablen mit vollständigen linearen Zusammenhang (Korrelationskoeffizient +/- 1) scheint mir allerdings eine Variablenselektion dennoch angeraten.
+
+Hour dient nur zur Information und soll nicht als Einflussvariable verwendet werden. Daher kann sie hier vernachlässigt werden.
+
+```{r Bilirubin}
+data_sample %>% 
+  filter(is.na(Bilirubin_total) & !is.na(Bilirubin_direct)) %>% 
+  summarize(n())
+
+data_sample %>% 
+  filter(is.na(Bilirubin_direct) & !is.na(Bilirubin_total)) %>% 
+  summarize(n())
+```
+Da es nur sehr wenige Beobachtungen gibt, in denen das Gesamt-Bilirubin fehlt, aber direkts Bilirubin gemessen wurde, andersherum jedoch einige Beobachtungen existieren, die eine Messung des Gesamt-Bilirubins enthalten, abre keine des direkten Bilirubins, wird die Variable Bilirubin_direct aus dem Datensatz entfernt.
+
+Hämoglobin- und Hämatokrit-Wert entsprechen einander ungefähr, weil die Erythrozyten den Großteil des Gesamtvolumens der Blutzellen ausmachen.
+
+```{r Hct Hgb}
+data_sample %>% 
+  filter(is.na(Hct) & !is.na(Hgb)) %>% 
+  summarize(n())
+
+data_sample %>% 
+  filter(is.na(Hgb) & !is.na(Hct)) %>% 
+  summarize(n())
+```
+
+Ich entscheide daher auch hier nach Vollständigkeit der Beobachtungen und entferne die Variable Hgb aus dem Datensatz.
+
+```{r variable selection}
+data_sample <- data_sample %>% 
+  select(-Bilirubin_direct, -Hgb)
+```
+
+```{r boxplots, include = TRUE, warning = FALSE, fig.height=8, fig.width=10, fig.cap="Boxplots der numerischen Einflussfaktoren"}
+# Numerische Einflussfaktoren in Bezug zum temporärer Sepsisstatus
+melt_sample <- data_sample %>% 
+  select(-Gender, -Unit1, -Unit2, ) %>% 
+  melt(., id.vars = c("Patient_ID", "X", "Hour", "SepsisLabel", "Sepsis"))
+
+p <- ggplot(melt_sample, aes(factor(variable), value)) + 
+  geom_boxplot(aes(fill = SepsisLabel)) + 
+   labs(x = "", y = "") +
+  facet_wrap(~variable, scale="free") +
+  theme(strip.background = element_blank(), strip.text = element_blank())
+
+p
+
+rm(melt_sample, p)
+```
+
+Bei Betrachtung der Boxplots der möglichen numerischen Einflussfaktoren fällt keine Variable durch besonders deutliche Unterschiede zwischen Patienten mit und ohne Sepsis auf.
+
+Da schwerwiegende Erkrankungen durchaus extreme medizinische Werte hervorbringen können, ist es schwierig festzulegen, wann Ausreißer Messfehler sind und daher aus der Betrachtung herausgenommen werden sollten. Zudem sind Baum-basierte Methoden robust gegenüber Ausreißern. Deshalb werden hier nur aus einer Variable wenige offensichtlich falsche Werte entfernt: FiO2 drückt einen Anteil aus und muss daher zwischen 0 und 1 liegen. 
+
+```{r data cleaning}
+data_sample %>%
+  filter(FiO2 < 0 | FiO2 > 1)
+
+data_sample <- data_sample %>% 
+  mutate(FiO2 = case_when(FiO2 >= 0 & FiO2 <= 1 ~ FiO2))
 ```
 
 ```{r creating baseline dataset}
@@ -135,9 +212,7 @@ rm(data_pos, data_neg, tmp_data_neg)
 ```
 
 ```{r creating regression dataset}
-# Anstelle der Vital- und Laborwerte sollen die patientenindividuellen Slopes
-# verwendet werden. Wenn ein Patient eine Sepsis entwickelt, wird nur der Zeitraum
-# bis zum ersten positiven Label betrachtet.
+# Anstelle der Vital- und Laborwerte sollen die patientenindividuellen Slopes verwendet werden. Wenn ein Patient eine Sepsis entwickelt, wird nur der Zeitraum bis zum ersten positiven Label betrachtet.
 
 # ToDo: Iteration über alle Variablen automatisieren
 data_pos <- data_sample %>% 
@@ -196,8 +271,8 @@ patient_model_Chloride <- function(df) {
   if (sum(!is.na(df$Chloride)) < 2) NA else lm(Chloride ~ Hour, data = df)$coeff[2]}
 patient_model_Creatinine <- function(df) {
   if (sum(!is.na(df$Creatinine)) < 2) NA else lm(Creatinine ~ Hour, data = df)$coeff[2]}
-patient_model_Bilirubin_direct <- function(df) {
-  if (sum(!is.na(df$Bilirubin_direct)) < 2) NA else lm(Bilirubin_direct ~ Hour, data = df)$coeff[2]}
+# patient_model_Bilirubin_direct <- function(df) {
+#   if (sum(!is.na(df$Bilirubin_direct)) < 2) NA else lm(Bilirubin_direct ~ Hour, data = df)$coeff[2]}
 patient_model_Glucose <- function(df) {
   if (sum(!is.na(df$Glucose)) < 2) NA else lm(Glucose ~ Hour, data = df)$coeff[2]}
 patient_model_Lactate <- function(df) {
@@ -214,8 +289,8 @@ patient_model_TroponinI <- function(df) {
   if (sum(!is.na(df$TroponinI)) < 2) NA else lm(TroponinI ~ Hour, data = df)$coeff[2]}
 patient_model_Hct <- function(df) {
   if (sum(!is.na(df$Hct)) < 2) NA else lm(Hct ~ Hour, data = df)$coeff[2]}
-patient_model_Hgb <- function(df) {
-  if (sum(!is.na(df$Hgb)) < 2) NA else lm(Hgb ~ Hour, data = df)$coeff[2]}
+# patient_model_Hgb <- function(df) {
+#   if (sum(!is.na(df$Hgb)) < 2) NA else lm(Hgb ~ Hour, data = df)$coeff[2]}
 patient_model_PTT <- function(df) {
   if (sum(!is.na(df$PTT)) < 2) NA else lm(PTT ~ Hour, data = df)$coeff[2]}
 patient_model_WBC <- function(df) {
@@ -248,7 +323,7 @@ by_patient <- data_sub %>%
          slope_Calcium = map(data, patient_model_Calcium),
          slope_Chloride = map(data, patient_model_Chloride),
          slope_Creatinine = map(data, patient_model_Creatinine),
-         slope_Bilirubin_direct = map(data, patient_model_Bilirubin_direct),
+         #slope_Bilirubin_direct = map(data, patient_model_Bilirubin_direct),
          slope_Glucose = map(data, patient_model_Glucose),
          slope_Lactate = map(data, patient_model_Lactate),
          slope_Magnesium = map(data, patient_model_Magnesium),
@@ -257,7 +332,7 @@ by_patient <- data_sub %>%
          slope_Bilirubin_total = map(data, patient_model_Bilirubin_total),
          slope_TroponinI = map(data, patient_model_TroponinI),
          slope_Hct = map(data, patient_model_Hct),
-         slope_Hgb = map(data, patient_model_Hgb),
+         #slope_Hgb = map(data, patient_model_Hgb),
          slope_PTT = map(data, patient_model_PTT),
          slope_WBC = map(data, patient_model_WBC),
          slope_Fibrinogen = map(data, patient_model_Fibrinogen),
@@ -266,10 +341,9 @@ by_patient <- data_sub %>%
            slope_Resp, slope_EtCO2, slope_BaseExcess, slope_HCO3, slope_FiO2, 
            slope_pH, slope_PaCO2, slope_SaO2, slope_AST, slope_BUN, 
            slope_Alkalinephos, slope_Calcium, slope_Chloride, slope_Creatinine, 
-           slope_Bilirubin_direct, slope_Glucose, slope_Lactate, slope_Magnesium, 
-           slope_Phosphate, slope_Potassium, slope_Bilirubin_total, slope_TroponinI, 
-           slope_Hct, slope_Hgb, slope_PTT, slope_WBC, slope_Fibrinogen, 
-           slope_Platelets)) %>%  
+           slope_Glucose, slope_Lactate, slope_Magnesium, slope_Phosphate,
+           slope_Potassium, slope_Bilirubin_total, slope_TroponinI, slope_Hct,
+           slope_PTT, slope_WBC, slope_Fibrinogen, slope_Platelets)) %>%  
   select(-data)
 
 dataset3 <- data_sample %>% 
@@ -277,4 +351,11 @@ dataset3 <- data_sample %>%
   merge(by_patient, by = "Patient_ID", all = FALSE) 
 
 rm(by_patient, data_sub, data_pos)
+```
+
+```{r vars description, include = TRUE, echo = FALSE}
+knitr::kable(var_info, booktabs = T,
+             caption = "Datensatzbeschreibung (Variablen)") %>%
+  kable_styling(latex_options = c("striped", "scale_down"),
+                position = "center")
 ```
