@@ -33,6 +33,9 @@ library(kableExtra)
 library(grid)
 library(gridExtra)
 library(reshape)
+library(rpart)
+library(rpart.plot)
+library(party)
 library(caret)
 ```
 
@@ -76,7 +79,24 @@ outcome <- data_sample %>%
 
 table(outcome$Sepsis)
 ```
+Es fallen zwei Fehler in den Daten auf:
+1. FiO2 (inspiratorische Sauerstofffraktion) drückt einen Anteil aus und muss daher zwischen 0 und 1 liegen. Die Werte außerhalb dieses Bereichs werden daher entfernt.
+2. HospAdmTime, die Zeit zwischen Hospitalisierung und Verlegung auf die Intensivstation, ist je nach Berechnung entweder positiv oder negativ, kann aber nicht sowohl positive als auch negative Werte annehmen, da niemand auf die Intensivstation verlegt werden kann, bevor er überhaupt im Krankenhaus ist. Es ist daher naheliegend, dass unterschiedliche Berechnungen (Aufnahmezeitpunkt_gesamt-Aufnahmezeitpunkt_Intensiv und Aufnahmezeitpunkt_Intensiv-Aufnahmezeitpunkt_gesamt) vorgenomen worden. Ich vereinheitliche hier auf positive Vorzeichen, da diese für die Interpretation geeigneter sind ("Zeit, die zwischen Aufnahme im Krankenhaus und Aufnahme auf der ITS vergangen ist").
 
+```{r data cleaning}
+data_sample %>%
+  filter(FiO2 < 0 | FiO2 > 1)
+
+data_sample %>%
+  filter(HospAdmTime > 0) %>% 
+  distinct(Patient_ID, HospAdmTime)
+
+data_sample <- data_sample %>% 
+  mutate(FiO2 = case_when(FiO2 >= 0 & FiO2 <= 1 ~ FiO2),
+         HospAdmTime = case_when(HospAdmTime < 0 ~ -1*HospAdmTime,
+                                 TRUE ~ HospAdmTime)
+         )
+```
 ```{r data preparation}
 data_sample <- data_sample %>% 
   mutate(Gender = factor(Gender, levels = c(0, 1), labels = c("W", "M")),
@@ -93,8 +113,7 @@ outcome <- outcome %>%
                          )
          )
 
-# Zur weiteren Verwendung wird jedem Datensatz der Outcome über den gesamten 
-# Zeitraum hinzugefügt
+# Zur weiteren Verwendung wird jedem Datensatz der Outcome über den gesamten # Zeitraum hinzugefügt
 data_sample <- merge(data_sample, outcome, by = "Patient_ID")
 ```
 
@@ -162,15 +181,7 @@ rm(melt_sample, p)
 
 Bei Betrachtung der Boxplots der möglichen numerischen Einflussfaktoren fällt keine Variable durch besonders deutliche Unterschiede zwischen Patienten mit und ohne Sepsis auf.
 
-Da schwerwiegende Erkrankungen durchaus extreme medizinische Werte hervorbringen können, ist es schwierig festzulegen, wann Ausreißer Messfehler sind und daher aus der Betrachtung herausgenommen werden sollten. Zudem sind Baum-basierte Methoden robust gegenüber Ausreißern. Deshalb werden hier nur aus einer Variable wenige offensichtlich falsche Werte entfernt: FiO2 drückt einen Anteil aus und muss daher zwischen 0 und 1 liegen. 
-
-```{r data cleaning}
-data_sample %>%
-  filter(FiO2 < 0 | FiO2 > 1)
-
-data_sample <- data_sample %>% 
-  mutate(FiO2 = case_when(FiO2 >= 0 & FiO2 <= 1 ~ FiO2))
-```
+Da schwerwiegende Erkrankungen durchaus extreme medizinische Werte hervorbringen können, ist es schwierig festzulegen, wann Ausreißer Messfehler sind und daher aus der Betrachtung herausgenommen werden sollten. Zudem sind Baum-basierte Methoden robust gegenüber Ausreißern. Deshalb werden hier nur aus einer Variable wenige offensichtlich falsche Werte entfernt: 
 
 ```{r creating baseline dataset}
 # Es sollen die Messwerte zur Stunde 1 verwendet werden, aber für den Outcome 
@@ -352,6 +363,67 @@ dataset3 <- data_sample %>%
 
 rm(by_patient, data_sub, data_pos)
 ```
+
+```{r}
+# caret::createDataPartition balanciert die Outcome-Varaible aus
+#der train_index für Datensatz 1 kann auch für datensatz 2 genutzt werden (gleiche Patienten, gleicher Outcome)
+train_index1 <- createDataPartition(dataset1$Sepsis, p=0.75, list = FALSE)
+
+#Datensatz 3 benötigt einen anderen train_index, da hier nicht alle Patienten enthalten sind
+train_index3 <- createDataPartition(dataset3$Sepsis, p=0.75, list = FALSE)
+
+train1 <- dataset1[train_index1,]
+test1  <- dataset1[-train_index1,]
+train2 <- dataset2[train_index1,]
+test2  <- dataset2[-train_index1,]
+train3 <- dataset3[train_index3,]
+test3  <- dataset3[-train_index3,]
+```
+
+```{r tree dataset2}
+cart_ds2 <- rpart(Sepsis ~ .-X-Patient_ID-Hour-ICULOS , data = train2,
+                  control = rpart.control(minsplit = 15,
+                                          minbucket = 5, 
+                                          cp = 0))
+
+rpart.plot(cart_ds2)
+
+cart_ds2_2 <- prune(cart_ds2, cp = 0.004)
+rpart.plot(cart_ds2_2)
+
+
+ci_ds2 <- ctree(Sepsis ~ ., 
+               data = subset(train2, select = -c(X, Hour, Patient_ID))
+               # data =train2
+                )
+ci_ds2
+plot(ci_ds2)
+table(predict(ci_ds2), train2$Sepsis)
+```
+```{r tree dataset1}
+cart_ds1 <- rpart(Sepsis ~ .-X-Patient_ID-Hour , data = train1,
+                  control = rpart.control(minsplit = 15,
+                                          minbucket = 5, 
+                                          cp = 0))
+
+rpart.plot(cart_ds1)
+
+cart_ds1_2 <- prune(cart_ds1, cp = 0.0025)
+rpart.plot(cart_ds1_2)
+```
+
+```{r tree datase3}
+cart_ds3 <- rpart(Sepsis ~ .-Patient_ID , data = train3,
+                  control = rpart.control(minsplit = 15,
+                                          minbucket = 5, 
+                                          cp = 0))
+
+rpart.plot(cart_ds3)
+
+cart_ds3_2 <- prune(cart_ds3, cp = 0.01)
+rpart.plot(cart_ds3_2)
+```
+
 
 ```{r vars description, include = TRUE, echo = FALSE}
 knitr::kable(var_info, booktabs = T,
