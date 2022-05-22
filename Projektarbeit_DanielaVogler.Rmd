@@ -26,7 +26,7 @@ knitr::opts_chunk$set(
   fig.pos = "H")
 ```
 
-```{r requirements, include = FALSE}
+```{r requirements, include = FALSE, cache = FALSE}
 library(tidyverse)
 library(here)
 library(kableExtra)
@@ -36,6 +36,8 @@ library(reshape)
 library(rpart)
 library(rpart.plot)
 library(party)
+library(rJava)
+library(RWeka)
 library(caret)
 ```
 
@@ -117,7 +119,7 @@ outcome <- outcome %>%
 data_sample <- merge(data_sample, outcome, by = "Patient_ID")
 ```
 
-```{r data correlation, fig.height=8, fig.width=12, message=TRUE, warning=FALSE}
+```{r data correlation, fig.height=8, fig.width=12, message=TRUE, warning=FALSE, include = TRUE}
 data_sample %>% 
   select_if(is.numeric) %>%  
   select(-Patient_ID, -X) %>% 
@@ -217,7 +219,8 @@ data_neg <- data_sample %>%
   
   
 dataset2 <- union_all(data_pos, data_neg) %>% 
-  select(-SepsisLabel)
+  select(-SepsisLabel) %>% 
+  as.data.frame()
 
 rm(data_pos, data_neg, tmp_data_neg)
 ```
@@ -262,14 +265,15 @@ by_patient <- data_sub %>%
 
 dataset3 <- data_sample %>% 
   distinct(Patient_ID, Age, Gender, Unit1, Unit2, HospAdmTime, Sepsis) %>%
-  merge(by_patient, by = "Patient_ID", all = FALSE)
+  merge(by_patient, by = "Patient_ID", all = FALSE) %>% 
+  select(Patient_ID, Sepsis, everything())
 
 rm(by_patient, data_sub, data_pos)
 ```
 
-```{r}
+```{r train and test sets}
 # caret::createDataPartition balanciert die Outcome-Varaible aus
-#der train_index für Datensatz 1 kann auch für datensatz 2 genutzt werden (gleiche Patienten, gleicher Outcome)
+# der train_index für Datensatz 1 kann auch für Datensatz 2 genutzt werden (gleiche Patienten, gleicher Outcome)
 train_index1 <- createDataPartition(dataset1$Sepsis, p=0.75, list = FALSE)
 
 #Datensatz 3 benötigt einen anderen train_index, da hier nicht alle Patienten enthalten sind
@@ -283,49 +287,150 @@ train3 <- dataset3[train_index3,]
 test3  <- dataset3[-train_index3,]
 ```
 
-```{r tree dataset2}
-cart_ds2 <- rpart(Sepsis ~ .-X-Patient_ID-Hour-ICULOS , data = train2,
-                  control = rpart.control(minsplit = 15,
-                                          minbucket = 5, 
-                                          cp = 0))
+```{r caret models control}
+set.seed(12345)
 
-rpart.plot(cart_ds2)
-
-cart_ds2_2 <- prune(cart_ds2, cp = 0.004)
-rpart.plot(cart_ds2_2)
+ctrl <- trainControl(method = "cv", number = 5,
+                     classProbs = TRUE,
+                     summaryFunction = twoClassSummary,
+                     sampling = "up")
 
 
-ci_ds2 <- ctree(Sepsis ~ ., 
-               data = subset(train2, select = -c(X, Hour, Patient_ID))
-               # data =train2
-                )
-ci_ds2
-plot(ci_ds2)
-table(predict(ci_ds2), train2$Sepsis)
-```
-```{r tree dataset1}
-cart_ds1 <- rpart(Sepsis ~ .-X-Patient_ID-Hour , data = train1,
-                  control = rpart.control(minsplit = 15,
-                                          minbucket = 5, 
-                                          cp = 0))
-
-rpart.plot(cart_ds1)
-
-cart_ds1_2 <- prune(cart_ds1, cp = 0.0025)
-rpart.plot(cart_ds1_2)
+cp_grid <- expand.grid(cp = seq(0, 0.01, by = 0.0001))
 ```
 
-```{r tree datase3}
-cart_ds3 <- rpart(Sepsis ~ .-Patient_ID , data = train3,
-                  control = rpart.control(minsplit = 15,
-                                          minbucket = 5, 
-                                          cp = 0))
+```{r caret cart models ds1, include = TRUE}
+set.seed(12345)
 
-rpart.plot(cart_ds3)
+cart_ds1 <- train(x = train1[,4:41],
+                  y = train1$Sepsis,
+                  method = "rpart",
+                  tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
 
-cart_ds3_2 <- prune(cart_ds3, cp = 0.01)
-rpart.plot(cart_ds3_2)
+cart_ds1
+rpart.plot(cart_ds1$finalModel, type = 5)
+rpart.rules(cart_ds1$finalModel)
+
+cart_ds1_Imp <- varImp(cart_ds1)
+plot1 <- plot(cart_ds1_Imp, top = 20)
+
+pred_cart_ds1 <- predict(cart_ds1, test1)
+confusionMatrix(data = pred_cart_ds1, reference = test1$Sepsis, positive = "positiv")
 ```
+
+```{r caret cart models ds1 preprocessed, include = TRUE}
+set.seed(12345)
+
+cart_proc_ds1 <- train(x = train1[,4:41],
+                  y = train1$Sepsis,
+                  preProcess = "medianImpute",
+                  method = "rpart",
+                  tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+cart_proc_ds1
+rpart.plot(cart_proc_ds1$finalModel, type = 5)
+
+cart_proc_ds1_Imp <- varImp(cart_proc_ds1)
+plot2 <- plot(cart_proc_ds1_Imp, top = 20)
+
+grid.arrange(plot1, plot2, nrow = 1)
+
+pred_cart_proc_ds1 <- predict(cart_proc_ds1, test1)
+confusionMatrix(data = pred_cart_proc_ds1, reference = test1$Sepsis, positive = "positiv")
+```
+
+```{r caret cart models ds2, include = TRUE}
+set.seed(12345)
+
+cart_ds2 <- train(x = train2[,4:41],
+                  y = train2$Sepsis,
+                  method = "rpart",
+                #  tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+cart_ds2
+rpart.plot(cart_ds2$finalModel, type = 5)
+rpart.rules(cart_ds2$finalModel)
+
+cart_ds2_Imp <- varImp(cart_ds2)
+plot1 <- plot(cart_ds2_Imp, top = 20)
+
+pred_cart_ds2 <- predict(cart_ds2, test2)
+confusionMatrix(data = pred_cart_ds2, reference = test2$Sepsis, positive = "positiv")
+```
+
+
+```{r caret cart models ds2 preprocessed, include = TRUE}
+set.seed(12345)
+
+cart_proc_ds2 <- train(x = train2[,4:41],
+                  y = train2$Sepsis,
+                  preProcess = "medianImpute",
+                  method = "rpart",
+                  tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+cart_proc_ds2
+rpart.plot(cart_proc_ds2$finalModel, type = 5)
+
+cart_proc_ds2_Imp <- varImp(cart_proc_ds2)
+plot2 <- plot(cart_proc_ds2_Imp, top = 20)
+
+grid.arrange(plot1, plot2, nrow = 1)
+
+pred_cart_proc_ds2 <- predict(cart_proc_ds2, test2)
+confusionMatrix(data = pred_cart_proc_ds2, reference = test2$Sepsis, positive = "positiv")
+```
+```{r caret cart models ds3, include = TRUE}
+set.seed(12345)
+
+cart_ds3 <- train(x = train3[,3:39],
+                  y = train3$Sepsis,
+                  method = "rpart",
+                  tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+cart_ds3
+rpart.plot(cart_ds3$finalModel, type = 5)
+rpart.rules(cart_ds3$finalModel)
+
+cart_ds3_Imp <- varImp(cart_ds3)
+plot1 <- plot(cart_ds3_Imp, top = 20)
+
+pred_cart_ds3 <- predict(cart_ds3, test3)
+confusionMatrix(data = pred_cart_ds3, reference = test3$Sepsis, positive = "positiv")
+```
+
+```{r caret cart models ds3 preprocessed, include = TRUE}
+set.seed(12345)
+# macht eigentlich keinen Sinn!!
+cart_proc_ds3 <- train(x = train3[,3:39],
+                  y = train3$Sepsis,
+                  preProcess = "medianImpute",
+                  method = "rpart",
+                  tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+cart_proc_ds3
+rpart.plot(cart_proc_ds3$finalModel, type = 5)
+
+cart_proc_ds3_Imp <- varImp(cart_proc_ds3)
+plot2 <- plot(cart_proc_ds3_Imp, top = 20)
+
+grid.arrange(plot1, plot2, nrow = 1)
+
+pred_cart_proc_ds3 <- predict(cart_proc_ds3, test3)
+confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, positive = "positiv")
+```
+
 
 
 ```{r vars description, include = TRUE, echo = FALSE}
