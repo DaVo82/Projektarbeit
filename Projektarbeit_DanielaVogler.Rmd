@@ -85,7 +85,7 @@ Es fallen zwei Fehler in den Daten auf:
 1. FiO2 (inspiratorische Sauerstofffraktion) drückt einen Anteil aus und muss daher zwischen 0 und 1 liegen. Die Werte außerhalb dieses Bereichs werden daher entfernt.
 2. HospAdmTime, die Zeit zwischen Hospitalisierung und Verlegung auf die Intensivstation, ist je nach Berechnung entweder positiv oder negativ, kann aber nicht sowohl positive als auch negative Werte annehmen, da niemand auf die Intensivstation verlegt werden kann, bevor er überhaupt im Krankenhaus ist. Es ist daher naheliegend, dass unterschiedliche Berechnungen (Aufnahmezeitpunkt_gesamt-Aufnahmezeitpunkt_Intensiv und Aufnahmezeitpunkt_Intensiv-Aufnahmezeitpunkt_gesamt) vorgenomen worden. Ich vereinheitliche hier auf positive Vorzeichen, da diese für die Interpretation geeigneter sind ("Zeit, die zwischen Aufnahme im Krankenhaus und Aufnahme auf der ITS vergangen ist").
 
-```{r data cleaning}
+```{r data cleaning, cache = TRUE}
 data_sample %>%
   filter(FiO2 < 0 | FiO2 > 1)
 
@@ -99,7 +99,7 @@ data_sample <- data_sample %>%
                                  TRUE ~ HospAdmTime)
          )
 ```
-```{r data preparation}
+```{r data preparation, cache = TRUE}
 data_sample <- data_sample %>% 
   mutate(Gender = factor(Gender, levels = c(0, 1), labels = c("W", "M")),
          Unit1 = factor(Unit1, levels = c(0, 1), labels = c("nein", "ja")),
@@ -119,7 +119,7 @@ outcome <- outcome %>%
 data_sample <- merge(data_sample, outcome, by = "Patient_ID")
 ```
 
-```{r data correlation, fig.height=8, fig.width=12, message=TRUE, warning=FALSE, include = TRUE}
+```{r data correlation, fig.height=8, fig.width=12, message=TRUE, warning=FALSE, include = TRUE, cache = TRUE}
 data_sample %>% 
   select_if(is.numeric) %>%  
   select(-Patient_ID, -X) %>% 
@@ -134,7 +134,7 @@ Bei Variablen mit vollständigen linearen Zusammenhang (Korrelationskoeffizient 
 
 Hour dient nur zur Information und soll nicht als Einflussvariable verwendet werden. Daher kann sie hier vernachlässigt werden.
 
-```{r Bilirubin}
+```{r Bilirubin, cache = TRUE}
 data_sample %>% 
   filter(is.na(Bilirubin_total) & !is.na(Bilirubin_direct)) %>% 
   summarize(n())
@@ -147,7 +147,7 @@ Da es nur sehr wenige Beobachtungen gibt, in denen das Gesamt-Bilirubin fehlt, a
 
 Hämoglobin- und Hämatokrit-Wert entsprechen einander ungefähr, weil die Erythrozyten den Großteil des Gesamtvolumens der Blutzellen ausmachen.
 
-```{r Hct Hgb}
+```{r Hct Hgb, cache = TRUE}
 data_sample %>% 
   filter(is.na(Hct) & !is.na(Hgb)) %>% 
   summarize(n())
@@ -159,13 +159,13 @@ data_sample %>%
 
 Ich entscheide daher auch hier nach Vollständigkeit der Beobachtungen und entferne die Variable Hgb aus dem Datensatz.
 
-```{r variable selection}
+```{r variable selection, cache = TRUE}
 data_sample <- data_sample %>% 
   select(-Bilirubin_direct, -Hgb)
 ```
 
-```{r boxplots, include = TRUE, warning = FALSE, fig.height=8, fig.width=10, fig.cap="Boxplots der numerischen Einflussfaktoren"}
-# Numerische Einflussfaktoren in Bezug zum temporärer Sepsisstatus
+```{r boxplots, include = TRUE, warning = FALSE, fig.height=8, fig.width=10, fig.cap="Boxplots der numerischen Einflussfaktoren", cache = TRUE}
+# Numerische Einflussfaktoren in Bezug zum temporären Sepsisstatus
 melt_sample <- data_sample %>% 
   select(-Gender, -Unit1, -Unit2, ) %>% 
   melt(., id.vars = c("Patient_ID", "X", "Hour", "SepsisLabel", "Sepsis"))
@@ -183,12 +183,32 @@ rm(melt_sample, p)
 
 Bei Betrachtung der Boxplots der möglichen numerischen Einflussfaktoren fällt keine Variable durch besonders deutliche Unterschiede zwischen Patienten mit und ohne Sepsis auf.
 
-Da schwerwiegende Erkrankungen durchaus extreme medizinische Werte hervorbringen können, ist es schwierig festzulegen, wann Ausreißer Messfehler sind und daher aus der Betrachtung herausgenommen werden sollten. Zudem sind Baum-basierte Methoden robust gegenüber Ausreißern. Deshalb werden hier nur aus einer Variable wenige offensichtlich falsche Werte entfernt: 
+Da schwerwiegende Erkrankungen durchaus extreme medizinische Werte hervorbringen können, ist es schwierig festzulegen, wann Ausreißer Messfehler sind und daher aus der Betrachtung herausgenommen werden sollten. Zudem sind Baum-basierte Methoden robust gegenüber Ausreißern. Deshalb werden hier keine weiteren Beobachtungen entfernt.
+
+Da Temperatur und Blutwerte häufig nur einmal tägöich bestimmt werden, macht es Sinn, diese bei fehlenden Eerten bis zu 24 Stunden fortzuschreiben (LOCF).
+
+```{r LOCF imputation, warnings = FALSE}
+data_sample_imputed <- data_sample %>% 
+  pivot_longer(cols = Temp|BaseExcess:Platelets, 
+               names_to = "var", 
+               values_to = "value") %>% 
+  group_by(Patient_ID, var) %>% 
+  mutate(last_Hour = max(Hour[!is.na(value)]), 
+         diff = Hour-last_Hour) %>% 
+  fill(value) %>% 
+  mutate(value = replace(value, which(diff > 24), NA)) %>% 
+  select(-last_Hour, -diff) %>% 
+  pivot_wider(names_from = var, values_from = value) %>% 
+  relocate(Temp, .after = O2Sat) %>% 
+  relocate(BaseExcess:Platelets, .after = EtCO2) %>% 
+  as.data.frame()
+```
+
 
 ```{r creating baseline dataset}
 # Es sollen die Messwerte zur Stunde 1 verwendet werden, aber für den Outcome 
 # ist der Gesamtzeitraum entscheidend
-dataset1 <- data_sample %>% 
+dataset1 <- data_sample_imputed %>% 
   filter(Hour == 1) %>% 
   select(-SepsisLabel)
 ```
@@ -196,7 +216,7 @@ dataset1 <- data_sample %>%
 ```{r creating onset dataset}
 # Es sollen die Beobachtungen zum Zeitpunkt des ersten positiven Labels verwendet
 # werden, für Nicht-Sepsispatienten ein zufälliger Zeitpunkt
-data_pos <- data_sample %>% 
+data_pos <- data_sample_imputed %>% 
   filter(SepsisLabel == "positiv") %>% 
   group_by(Patient_ID) %>% 
   mutate(ersteSepsisflag = min(Hour)) %>% 
@@ -204,14 +224,15 @@ data_pos <- data_sample %>%
   filter(Hour == ersteSepsisflag) %>% 
   select(-ersteSepsisflag)
 
-tmp_data_neg <- data_sample %>% 
+tmp_data_neg <- data_sample_imputed %>% 
   filter(Sepsis == "negativ") %>% 
   group_by(Patient_ID) %>% 
   summarize(max_Hour = max(Hour),
-            selected_Hour = sample (c(1:max_Hour), size=1, replace =F)
+            selected_Hour = sample (c(1:max_Hour), 
+                                    size=1, replace =F)
             )
 
-data_neg <- data_sample %>% 
+data_neg <- data_sample_imputed %>% 
   filter(Sepsis == "negativ") %>% 
   merge(., tmp_data_neg, by = "Patient_ID") %>% 
   filter(Hour == selected_Hour) %>% 
@@ -233,14 +254,14 @@ patient_model <- function(df) {
   else lm(yvalue ~ Hour, data = df)$coeff[2]
   }
 
-data_pos <- data_sample %>% 
+data_pos <- data_sample_imputed %>% 
   filter(SepsisLabel == "positiv") %>% 
   group_by(Patient_ID) %>% 
   mutate(ersteSepsisflag = min(Hour),
          ICULOS_end = min(ICULOS)) %>% 
   distinct(Patient_ID, ersteSepsisflag, ICULOS_end)
 
-data_sub <- data_sample %>% 
+data_sub <- data_sample_imputed %>% 
   merge(., data_pos, by = "Patient_ID", all.x = TRUE) %>% 
   filter(Sepsis == "negativ" | 
            (ersteSepsisflag > 0 &  Hour <= ersteSepsisflag) 
@@ -274,7 +295,7 @@ rm(by_patient, data_sub, data_pos)
 ```{r train and test sets}
 # caret::createDataPartition balanciert die Outcome-Varaible aus
 # der train_index für Datensatz 1 kann auch für Datensatz 2 genutzt werden (gleiche Patienten, gleicher Outcome)
-train_index1 <- createDataPartition(dataset1$Sepsis, p=0.75, list = FALSE)
+train_index1 <- createDataPartition(dataset1$Sepsis, p =0.75, list = FALSE)
 
 #Datensatz 3 benötigt einen anderen train_index, da hier nicht alle Patienten enthalten sind
 train_index3 <- createDataPartition(dataset3$Sepsis, p=0.75, list = FALSE)
@@ -321,26 +342,26 @@ confusionMatrix(data = pred_cart_ds1, reference = test1$Sepsis, positive = "posi
 ```
 
 ```{r caret cart models ds1 preprocessed, include = TRUE}
-set.seed(12345)
-
-cart_proc_ds1 <- train(x = train1[,4:41],
-                  y = train1$Sepsis,
-                  preProcess = "medianImpute",
-                  method = "rpart",
-                  tuneGrid = cp_grid,
-                  metric = "ROC",
-                  trControl = ctrl)
-
-cart_proc_ds1
-rpart.plot(cart_proc_ds1$finalModel, type = 5)
-
-cart_proc_ds1_Imp <- varImp(cart_proc_ds1)
-plot2 <- plot(cart_proc_ds1_Imp, top = 20)
-
-grid.arrange(plot1, plot2, nrow = 1)
-
-pred_cart_proc_ds1 <- predict(cart_proc_ds1, test1)
-confusionMatrix(data = pred_cart_proc_ds1, reference = test1$Sepsis, positive = "positiv")
+# set.seed(12345)
+# 
+# cart_proc_ds1 <- train(x = train1[,4:41],
+#                   y = train1$Sepsis,
+#                   preProcess = "medianImpute",
+#                   method = "rpart",
+#                   tuneGrid = cp_grid,
+#                   metric = "ROC",
+#                   trControl = ctrl)
+# 
+# cart_proc_ds1
+# rpart.plot(cart_proc_ds1$finalModel, type = 5)
+# 
+# cart_proc_ds1_Imp <- varImp(cart_proc_ds1)
+# plot2 <- plot(cart_proc_ds1_Imp, top = 20)
+# 
+# grid.arrange(plot1, plot2, nrow = 1)
+# 
+# pred_cart_proc_ds1 <- predict(cart_proc_ds1, test1)
+# confusionMatrix(data = pred_cart_proc_ds1, reference = test1$Sepsis, positive = "positiv")
 ```
 
 ```{r caret cart models ds2, include = TRUE}
@@ -383,7 +404,7 @@ cart_proc_ds2_Imp <- varImp(cart_proc_ds2)
 plot2 <- plot(cart_proc_ds2_Imp, top = 20)
 
 grid.arrange(plot1, plot2, nrow = 1)
-
+# 
 pred_cart_proc_ds2 <- predict(cart_proc_ds2, test2)
 confusionMatrix(data = pred_cart_proc_ds2, reference = test2$Sepsis, positive = "positiv")
 ```
@@ -431,9 +452,30 @@ pred_cart_proc_ds3 <- predict(cart_proc_ds3, test3)
 confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, positive = "positiv")
 ```
 
+```{r caret rf models ds1, include = TRUE}
+set.seed(12345)
 
+rf_ds1 <- train(x = train1[,4:41],
+                  y = train1$Sepsis,
+                  preprocessed="medianImpute",
+                  method = "rf",
+                 # tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
 
-```{r vars description, include = TRUE, echo = FALSE}
+rf_ds1
+#rpart.plot(cart_proc_ds3$finalModel, type = 5)
+
+#cart_proc_ds3_Imp <- varImp(cart_proc_ds3)
+# plot2 <- plot(cart_proc_ds3_Imp, top = 20)
+# 
+# grid.arrange(plot1, plot2, nrow = 1)
+# 
+# pred_cart_proc_ds3 <- predict(cart_proc_ds3, test3)
+# confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, positive = "positiv")
+```
+
+```{r vars description, include = TRUE, echo = FALSE, cache = TRUE}
 knitr::kable(var_info, booktabs = T,
              caption = "Datensatzbeschreibung (Variablen)") %>%
   kable_styling(latex_options = c("striped", "scale_down"),
