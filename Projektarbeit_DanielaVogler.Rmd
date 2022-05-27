@@ -453,17 +453,17 @@ confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, positive = 
 ```
 
 ```{r caret rf models ds1, include = TRUE}
-set.seed(12345)
-
-rf_ds1 <- train(x = train1[,4:41],
-                  y = train1$Sepsis,
-                  preprocessed="medianImpute",
-                  method = "rf",
-                 # tuneGrid = cp_grid,
-                  metric = "ROC",
-                  trControl = ctrl)
-
-rf_ds1
+# set.seed(12345)
+# 
+# rf_ds1 <- train(x = train1[,4:41],
+#                   y = train1$Sepsis,
+#                   preprocessed="medianImpute",
+#                   method = "rf",
+#                  # tuneGrid = cp_grid,
+#                   metric = "ROC",
+#                   trControl = ctrl)
+# 
+# rf_ds1
 #rpart.plot(cart_proc_ds3$finalModel, type = 5)
 
 #cart_proc_ds3_Imp <- varImp(cart_proc_ds3)
