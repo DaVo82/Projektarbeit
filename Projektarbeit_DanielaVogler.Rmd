@@ -39,6 +39,7 @@ library(party)
 library(rJava)
 library(RWeka)
 library(caret)
+library(naniar)
 ```
 
 ```{r session info, include = TRUE}
@@ -189,12 +190,12 @@ Da Temperatur und Blutwerte häufig nur einmal tägöich bestimmt werden, macht 
 
 ```{r LOCF imputation, warnings = FALSE}
 data_sample_imputed <- data_sample %>% 
-  pivot_longer(cols = Temp|BaseExcess:Platelets, 
+  pivot_longer(cols = Temp | BaseExcess:Platelets, 
                names_to = "var", 
                values_to = "value") %>% 
   group_by(Patient_ID, var) %>% 
   mutate(last_Hour = max(Hour[!is.na(value)]), 
-         diff = Hour-last_Hour) %>% 
+         diff = Hour - last_Hour) %>% 
   fill(value) %>% 
   mutate(value = replace(value, which(diff > 24), NA)) %>% 
   select(-last_Hour, -diff) %>% 
@@ -228,8 +229,8 @@ tmp_data_neg <- data_sample_imputed %>%
   filter(Sepsis == "negativ") %>% 
   group_by(Patient_ID) %>% 
   summarize(max_Hour = max(Hour),
-            selected_Hour = sample (c(1:max_Hour), 
-                                    size=1, replace =F)
+            selected_Hour = sample(c(1:max_Hour),
+                                    size = 1, replace = F)
             )
 
 data_neg <- data_sample_imputed %>% 
@@ -274,17 +275,17 @@ data_sub <- data_sample_imputed %>%
   pivot_longer(cols = HR:Platelets, 
                names_to = "yvar", 
                values_to = "yvalue") %>% 
-  mutate(yvar = paste("slope_", yvar)) # eindeutige Namen erzeugen
+  mutate(yvar = paste("slope_", yvar, sep = "")) # eindeutige Namen erzeugen
 
 by_patient <- data_sub %>%
-  group_by(Patient_ID, yvar) %>%
+  group_by(Patient_ID, yvar, ICULOS) %>% # damit ICULOS erhalten bleibt
   nest() %>%
-  mutate(slope = map(data, patient_model))%>%
+  mutate(slope = map(data, patient_model)) %>%
   unnest(slope) %>%  
   select(-data) %>%
   pivot_wider(names_from = yvar, values_from = slope)
 
-dataset3 <- data_sample %>% 
+dataset3 <- data_sample_imputed %>% 
   distinct(Patient_ID, Age, Gender, Unit1, Unit2, HospAdmTime, Sepsis) %>%
   merge(by_patient, by = "Patient_ID", all = FALSE) %>% 
   select(Patient_ID, Sepsis, everything())
@@ -295,10 +296,10 @@ rm(by_patient, data_sub, data_pos)
 ```{r train and test sets}
 # caret::createDataPartition balanciert die Outcome-Varaible aus
 # der train_index für Datensatz 1 kann auch für Datensatz 2 genutzt werden (gleiche Patienten, gleicher Outcome)
-train_index1 <- createDataPartition(dataset1$Sepsis, p =0.75, list = FALSE)
+train_index1 <- createDataPartition(dataset1$Sepsis, p = 0.75, list = FALSE)
 
 #Datensatz 3 benötigt einen anderen train_index, da hier nicht alle Patienten enthalten sind
-train_index3 <- createDataPartition(dataset3$Sepsis, p=0.75, list = FALSE)
+train_index3 <- createDataPartition(dataset3$Sepsis, p = 0.75, list = FALSE)
 
 train1 <- dataset1[train_index1,]
 test1  <- dataset1[-train_index1,]
@@ -316,8 +317,7 @@ ctrl <- trainControl(method = "cv", number = 5,
                      summaryFunction = twoClassSummary,
                      sampling = "up")
 
-
-cp_grid <- expand.grid(cp = seq(0, 0.01, by = 0.0001))
+#cp_grid <- expand.grid(cp = seq(0, 0.01, by = 0.0001))
 ```
 
 ```{r caret cart models ds1, include = TRUE}
@@ -326,7 +326,7 @@ set.seed(12345)
 cart_ds1 <- train(x = train1[,4:41],
                   y = train1$Sepsis,
                   method = "rpart",
-                  tuneGrid = cp_grid,
+#                  tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -342,26 +342,26 @@ confusionMatrix(data = pred_cart_ds1, reference = test1$Sepsis, positive = "posi
 ```
 
 ```{r caret cart models ds1 preprocessed, include = TRUE}
-# set.seed(12345)
-# 
-# cart_proc_ds1 <- train(x = train1[,4:41],
-#                   y = train1$Sepsis,
-#                   preProcess = "medianImpute",
-#                   method = "rpart",
-#                   tuneGrid = cp_grid,
-#                   metric = "ROC",
-#                   trControl = ctrl)
-# 
-# cart_proc_ds1
-# rpart.plot(cart_proc_ds1$finalModel, type = 5)
-# 
-# cart_proc_ds1_Imp <- varImp(cart_proc_ds1)
-# plot2 <- plot(cart_proc_ds1_Imp, top = 20)
-# 
-# grid.arrange(plot1, plot2, nrow = 1)
-# 
-# pred_cart_proc_ds1 <- predict(cart_proc_ds1, test1)
-# confusionMatrix(data = pred_cart_proc_ds1, reference = test1$Sepsis, positive = "positiv")
+set.seed(12345)
+
+cart_proc_ds1 <- train(x = train1[,4:41],
+                  y = train1$Sepsis,
+                  preProcess = "medianImpute",
+                  method = "rpart",
+#                 tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+cart_proc_ds1
+rpart.plot(cart_proc_ds1$finalModel, type = 5)
+
+cart_proc_ds1_Imp <- varImp(cart_proc_ds1)
+plot2 <- plot(cart_proc_ds1_Imp, top = 20)
+
+grid.arrange(plot1, plot2, nrow = 1)
+
+pred_cart_proc_ds1 <- predict(cart_proc_ds1, test1)
+confusionMatrix(data = pred_cart_proc_ds1, reference = test1$Sepsis, positive = "positiv")
 ```
 
 ```{r caret cart models ds2, include = TRUE}
@@ -370,7 +370,7 @@ set.seed(12345)
 cart_ds2 <- train(x = train2[,4:41],
                   y = train2$Sepsis,
                   method = "rpart",
-                #  tuneGrid = cp_grid,
+#                 tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -393,7 +393,7 @@ cart_proc_ds2 <- train(x = train2[,4:41],
                   y = train2$Sepsis,
                   preProcess = "medianImpute",
                   method = "rpart",
-                  tuneGrid = cp_grid,
+#                 tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -411,10 +411,10 @@ confusionMatrix(data = pred_cart_proc_ds2, reference = test2$Sepsis, positive = 
 ```{r caret cart models ds3, include = TRUE}
 set.seed(12345)
 
-cart_ds3 <- train(x = train3[,3:39],
+cart_ds3 <- train(x = train3[,3:40],
                   y = train3$Sepsis,
                   method = "rpart",
-                  tuneGrid = cp_grid,
+#                 tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -432,11 +432,11 @@ confusionMatrix(data = pred_cart_ds3, reference = test3$Sepsis, positive = "posi
 ```{r caret cart models ds3 preprocessed, include = TRUE}
 set.seed(12345)
 # macht eigentlich keinen Sinn!!
-cart_proc_ds3 <- train(x = train3[,3:39],
+cart_proc_ds3 <- train(x = train3[,3:40],
                   y = train3$Sepsis,
                   preProcess = "medianImpute",
                   method = "rpart",
-                  tuneGrid = cp_grid,
+#                 tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -451,28 +451,204 @@ grid.arrange(plot1, plot2, nrow = 1)
 pred_cart_proc_ds3 <- predict(cart_proc_ds3, test3)
 confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, positive = "positiv")
 ```
+```{r tune grid rf}
+mtry_grid <-  expand.grid(mtry = seq(2,38,3))
+```
 
-```{r caret rf models ds1, include = TRUE}
-# set.seed(12345)
-# 
-# rf_ds1 <- train(x = train1[,4:41],
-#                   y = train1$Sepsis,
-#                   preprocessed="medianImpute",
-#                   method = "rf",
-#                  # tuneGrid = cp_grid,
-#                   metric = "ROC",
-#                   trControl = ctrl)
-# 
-# rf_ds1
-#rpart.plot(cart_proc_ds3$finalModel, type = 5)
+```{r caret rf models ds1, include = TRUE, cache = FALSE}
+set.seed(12345)
 
-#cart_proc_ds3_Imp <- varImp(cart_proc_ds3)
-# plot2 <- plot(cart_proc_ds3_Imp, top = 20)
-# 
-# grid.arrange(plot1, plot2, nrow = 1)
-# 
-# pred_cart_proc_ds3 <- predict(cart_proc_ds3, test3)
-# confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, positive = "positiv")
+rf_proc_ds1 <- train(x = train1[,4:41],
+                  y = train1$Sepsis,
+                  preProcess = "medianImpute",
+                  method = "rpart",
+#                 tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+rf_proc_ds1
+
+#Medianimputation der Testdaten findet automatisch statt
+pred_rf_proc_ds1 <- predict(rf_proc_ds1$finalModel, test1, type = "class")
+confusionMatrix(data = pred_rf_proc_ds1, reference = test1$Sepsis, positive = "positiv")
+
+# Alternative: Imputation nach Breiman:
+
+ds1_imputed <- rfImpute(train1$Sepsis ~ ., train1) %>% 
+  dplyr::rename(Sepsis = `train1$Sepsis`) %>% 
+  relocate(Sepsis, .after = ICULOS) 
+  
+rf_ds1 <- train(x = ds1_imputed[,4:41],
+                  y = train1$Sepsis,
+                  method = "rf",
+                  tuneGrid = mtry_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+rf_ds1
+
+# Hier werden Tetsdaten nicht automatisch imputiert
+pred_rf_ds1 <- predict(rf_ds1$finalModel, rfImpute(Sepsis ~., test1)[,-1], type = "class")
+confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis, positive = "positiv")
+```
+```{r caret rf models ds2, include = TRUE, cache = FALSE}
+set.seed(12345)
+
+rf_proc_ds2 <- train(x = train2[,4:41],
+                  y = train2$Sepsis,
+                  preProcess = "medianImpute",
+                  method = "rpart",
+#                 tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+rf_proc_ds2
+
+#Medianimputation der Testdaten findet automatisch statt
+pred_rf_proc_ds2 <- predict(rf_proc_ds2$finalModel, test2, type = "class")
+confusionMatrix(data = pred_rf_proc_ds2, reference = test2$Sepsis, positive = "positiv")
+
+# Alternative: Imputation nach Breiman:
+
+ds2_imputed <- rfImpute(train2$Sepsis ~ ., train2) %>% 
+  dplyr::rename(Sepsis = `train2$Sepsis`) %>% 
+  relocate(Sepsis, .after = ICULOS) 
+  
+rf_ds2 <- train(x = ds2_imputed[,4:41],
+                  y = train2$Sepsis,
+                  method = "rf",
+                  tuneGrid = mtry_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+rf_ds2
+
+# Hier werden Tetsdaten nicht automatisch imputiert
+pred_rf_ds2 <- predict(rf_ds2$finalModel, rfImpute(Sepsis ~., test2)[,-1], type = "class")
+confusionMatrix(data = pred_rf_ds2, reference = test2$Sepsis, positive = "positiv")
+```
+```{r caret rf models ds3, include = TRUE, cache = FALSE}
+set.seed(12345)
+
+rf_proc_ds3 <- train(x = train3[,3:40],
+                  y = train3$Sepsis,
+                  preProcess = "medianImpute",
+                  method = "rpart",
+#                 tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+rf_proc_ds3
+
+#Medianimputation der Testdaten findet automatisch statt
+pred_rf_proc_ds3 <- predict(rf_proc_ds3$finalModel, test3, type = "class")
+confusionMatrix(data = pred_rf_proc_ds3, reference = test3$Sepsis, 
+                positive = "positiv")
+
+# Alternative: Imputation nach Breiman:
+
+ds3_imputed <- rfImpute(train3$Sepsis ~ ., train3) %>% 
+  dplyr::rename(Sepsis = `train3$Sepsis`)
+  
+rf_ds3 <- train(x = ds3_imputed[,3:40],
+                  y = train3$Sepsis,
+                  method = "rf",
+                  tuneGrid = mtry_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+rf_ds3
+
+# Hier werden Tetsdaten nicht automatisch imputiert
+pred_rf_ds3 <- predict(rf_ds3$finalModel, rfImpute(Sepsis ~., test3)[,-1], type = "class")
+confusionMatrix(data = pred_rf_ds3, reference = test3$Sepsis, positive = "positiv")
+```
+
+Medianimputation liefert bessere Ergebnisse als die RandomForest-Imputationsmethode. 
+Somit gibt es keinen Grund, die rechenintensivere Methode zu wählen. 
+```{r evaluation rf}
+confusionMatrix(data = pred_rf_proc_ds1, reference = test1$Sepsis, positive = "positiv")
+confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis, positive = "positiv")
+confusionMatrix(data = pred_rf_proc_ds2, reference = test2$Sepsis, positive = "positiv")
+confusionMatrix(data = pred_rf_ds2, reference = test2$Sepsis, positive = "positiv")
+confusionMatrix(data = pred_rf_proc_ds3, reference = test3$Sepsis, positive = "positiv")
+confusionMatrix(data = pred_rf_ds3, reference = test3$Sepsis, positive = "positiv")
+```
+Dataset 3 (Slopes) mit Medianimput liefert die besten Ergebnisse.
+
+Als Alternative soll aber versucht werden, nur die Variablen mit relativ wenig fehlenden Werten (< 30%) als Prädiktoren zu verwenden und dann nur vollständige Beobachtungen einzubeziehen.
+Frage: Vollständig heißt, dass in keinem Prädiktor der Wert fehlt. -> Wie groß ist dann das verbleibende Dataset? Das kann wesentlich kleiner als 70% sein. -> Prüfen.
+
+```{r rf non-missing ds1}
+set.seed(12345)
+
+vis_miss(dataset1)
+miss_var_summary(dataset1)
+
+train1_2 <- train1 %>% 
+  select(Resp, SBP, MAP,	O2Sat, HR, Age,	Gender,	HospAdmTime, ICULOS)
+
+rf_nm_ds1 <- train(x = train1_2,
+                  y = train1$Sepsis,
+                  method = "rpart",
+                  na.action = na.omit,
+#                 tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+rf_nm_ds1
+
+pred_rf_nm_ds1 <- predict(rf_nm_ds1$finalModel, test1, type = "class")
+confusionMatrix(data = pred_rf_nm_ds1, reference = test1$Sepsis, positive = "positiv")
+```
+```{r rf non-missing ds2}
+set.seed(12345)
+
+vis_miss(dataset2)
+miss_var_summary(dataset2)
+
+train2_2 <- train2 %>% 
+  select(WBC, Platelets, Creatinine, BUN, Hct,Potassium,	Glucose, Resp, SBP, O2Sat,
+         MAP, HR, Temp, Age, Gender, HospAdmTime)
+
+rf_nm_ds2 <- train(x = train2_2,
+                  y = train2$Sepsis,
+                  method = "rpart",
+                  na.action = na.omit,
+#                 tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+rf_nm_ds2
+
+pred_rf_nm_ds2 <- predict(rf_nm_ds2$finalModel, test2, type = "class")
+confusionMatrix(data = pred_rf_nm_ds2, reference = test2$Sepsis, positive = "positiv")
+```
+
+```{r rf non-missing ds3}
+set.seed(12345)
+
+vis_miss(dataset3)
+miss_var_summary(dataset3)
+
+train3_2 <- train3 %>% 
+  select(slope_DBP, slope_Calcium, slope_Magnesium, slope_WBC, slope_Platelets,
+         slope_Hct, slope_Creatinine, slope_BUN, slope_Potassium, slope_Glucose,
+         slope_Temp, slope_SBP, slope_MAP, slope_Resp, slope_O2Sat, slope_HR, Age,
+         Gender, HospAdmTime, ICULOS)
+
+rf_nm_ds3 <- train(x = train3_2,
+                  y = train3$Sepsis,
+                  method = "rpart",
+                  na.action = na.omit,
+#                 tuneGrid = cp_grid,
+                  metric = "ROC",
+                  trControl = ctrl)
+
+rf_nm_ds3
+
+pred_rf_nm_ds3 <- predict(rf_nm_ds3$finalModel, test3, type = "class")
+confusionMatrix(data = pred_rf_nm_ds3, reference = test3$Sepsis, positive = "positiv")
 ```
 
 ```{r vars description, include = TRUE, echo = FALSE, cache = TRUE}
