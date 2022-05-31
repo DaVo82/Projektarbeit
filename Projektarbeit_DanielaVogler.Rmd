@@ -12,6 +12,8 @@ output:
   toc_depth: 2
   keep_tex: yes
   number_sections: true
+params:
+  clean: FALSE
 fontsize: 12pt
 editor_options: 
   markdown: 
@@ -39,12 +41,13 @@ library(party)
 library(rJava)
 library(RWeka)
 library(caret)
+library(randomForest)
 library(naniar)
 ```
 
 ```{r session info, include = TRUE}
 sessioninfo::platform_info()$version
-subset(data.frame(sessioninfo::package_info()), attached==TRUE, 
+subset(data.frame(sessioninfo::package_info()), attached == TRUE, 
        c(package, loadedversion))
 ```
 
@@ -100,6 +103,7 @@ data_sample <- data_sample %>%
                                  TRUE ~ HospAdmTime)
          )
 ```
+
 ```{r data preparation, cache = TRUE}
 data_sample <- data_sample %>% 
   mutate(Gender = factor(Gender, levels = c(0, 1), labels = c("W", "M")),
@@ -125,7 +129,7 @@ data_sample %>%
   select_if(is.numeric) %>%  
   select(-Patient_ID, -X) %>% 
   GGally::ggcorr(method = c("pairwise.complete.obs", "pearson"),
-         label = TRUE, label_size =2, label_alpha = TRUE) + 
+         label = TRUE, label_size = 2, label_alpha = TRUE) + 
   labs(title = "Korrelationskoeffizienten nach Pearson")
 ```
 
@@ -174,7 +178,7 @@ melt_sample <- data_sample %>%
 p <- ggplot(melt_sample, aes(factor(variable), value)) + 
   geom_boxplot(aes(fill = SepsisLabel)) + 
    labs(x = "", y = "") +
-  facet_wrap(~variable, scale="free") +
+  facet_wrap(~variable, scale = "free") +
   theme(strip.background = element_blank(), strip.text = element_blank())
 
 p
@@ -356,9 +360,7 @@ cart_proc_ds1
 rpart.plot(cart_proc_ds1$finalModel, type = 5)
 
 cart_proc_ds1_Imp <- varImp(cart_proc_ds1)
-plot2 <- plot(cart_proc_ds1_Imp, top = 20)
-
-grid.arrange(plot1, plot2, nrow = 1)
+plot(cart_proc_ds1_Imp, top = 20)
 
 pred_cart_proc_ds1 <- predict(cart_proc_ds1, test1)
 confusionMatrix(data = pred_cart_proc_ds1, reference = test1$Sepsis, positive = "positiv")
@@ -379,7 +381,7 @@ rpart.plot(cart_ds2$finalModel, type = 5)
 rpart.rules(cart_ds2$finalModel)
 
 cart_ds2_Imp <- varImp(cart_ds2)
-plot1 <- plot(cart_ds2_Imp, top = 20)
+plot(cart_ds2_Imp, top = 20)
 
 pred_cart_ds2 <- predict(cart_ds2, test2)
 confusionMatrix(data = pred_cart_ds2, reference = test2$Sepsis, positive = "positiv")
@@ -401,10 +403,8 @@ cart_proc_ds2
 rpart.plot(cart_proc_ds2$finalModel, type = 5)
 
 cart_proc_ds2_Imp <- varImp(cart_proc_ds2)
-plot2 <- plot(cart_proc_ds2_Imp, top = 20)
+plot(cart_proc_ds2_Imp, top = 20)
 
-grid.arrange(plot1, plot2, nrow = 1)
-# 
 pred_cart_proc_ds2 <- predict(cart_proc_ds2, test2)
 confusionMatrix(data = pred_cart_proc_ds2, reference = test2$Sepsis, positive = "positiv")
 ```
@@ -451,28 +451,15 @@ grid.arrange(plot1, plot2, nrow = 1)
 pred_cart_proc_ds3 <- predict(cart_proc_ds3, test3)
 confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, positive = "positiv")
 ```
+
 ```{r tune grid rf}
 mtry_grid <-  expand.grid(mtry = seq(2,38,3))
 ```
 
-```{r caret rf models ds1, include = TRUE, cache = FALSE}
+```{r caret rf model ds1, include = TRUE}
 set.seed(12345)
 
-rf_proc_ds1 <- train(x = train1[,4:41],
-                  y = train1$Sepsis,
-                  preProcess = "medianImpute",
-                  method = "rpart",
-#                 tuneGrid = cp_grid,
-                  metric = "ROC",
-                  trControl = ctrl)
-
-rf_proc_ds1
-
-#Medianimputation der Testdaten findet automatisch statt
-pred_rf_proc_ds1 <- predict(rf_proc_ds1$finalModel, test1, type = "class")
-confusionMatrix(data = pred_rf_proc_ds1, reference = test1$Sepsis, positive = "positiv")
-
-# Alternative: Imputation nach Breiman:
+# Imputation nach Breiman:
 
 ds1_imputed <- rfImpute(train1$Sepsis ~ ., train1) %>% 
   dplyr::rename(Sepsis = `train1$Sepsis`) %>% 
@@ -487,28 +474,15 @@ rf_ds1 <- train(x = ds1_imputed[,4:41],
 
 rf_ds1
 
-# Hier werden Tetsdaten nicht automatisch imputiert
-pred_rf_ds1 <- predict(rf_ds1$finalModel, rfImpute(Sepsis ~., test1)[,-1], type = "class")
-confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis, positive = "positiv")
+# Testdaten werden nicht automatisch imputiert
+pred_rf_ds1 <- predict(rf_ds1$finalModel, rfImpute(Sepsis ~., test1)[,-1], type = "response")
+confusionMatrix(data = pred_rf_ds1_test, reference = test1$Sepsis, positive = "positiv")
 ```
-```{r caret rf models ds2, include = TRUE, cache = FALSE}
+
+```{r caret rf model ds2, include = TRUE,}
 set.seed(12345)
 
-rf_proc_ds2 <- train(x = train2[,4:41],
-                  y = train2$Sepsis,
-                  preProcess = "medianImpute",
-                  method = "rpart",
-#                 tuneGrid = cp_grid,
-                  metric = "ROC",
-                  trControl = ctrl)
-
-rf_proc_ds2
-
-#Medianimputation der Testdaten findet automatisch statt
-pred_rf_proc_ds2 <- predict(rf_proc_ds2$finalModel, test2, type = "class")
-confusionMatrix(data = pred_rf_proc_ds2, reference = test2$Sepsis, positive = "positiv")
-
-# Alternative: Imputation nach Breiman:
+# Imputation nach Breiman:
 
 ds2_imputed <- rfImpute(train2$Sepsis ~ ., train2) %>% 
   dplyr::rename(Sepsis = `train2$Sepsis`) %>% 
@@ -523,29 +497,15 @@ rf_ds2 <- train(x = ds2_imputed[,4:41],
 
 rf_ds2
 
-# Hier werden Tetsdaten nicht automatisch imputiert
-pred_rf_ds2 <- predict(rf_ds2$finalModel, rfImpute(Sepsis ~., test2)[,-1], type = "class")
-confusionMatrix(data = pred_rf_ds2, reference = test2$Sepsis, positive = "positiv")
+# Testdaten werden nicht automatisch imputiert
+pred_rf_ds2 <- predict(rf_ds2$finalModel, rfImpute(Sepsis ~., test2)[,-1], type = "response")
+confusionMatrix(data = pred_rf_ds2_test, reference = test2$Sepsis, positive = "positiv")
 ```
-```{r caret rf models ds3, include = TRUE, cache = FALSE}
+
+```{r caret rf model ds3, include = TRUE}
 set.seed(12345)
 
-rf_proc_ds3 <- train(x = train3[,3:40],
-                  y = train3$Sepsis,
-                  preProcess = "medianImpute",
-                  method = "rpart",
-#                 tuneGrid = cp_grid,
-                  metric = "ROC",
-                  trControl = ctrl)
-
-rf_proc_ds3
-
-#Medianimputation der Testdaten findet automatisch statt
-pred_rf_proc_ds3 <- predict(rf_proc_ds3$finalModel, test3, type = "class")
-confusionMatrix(data = pred_rf_proc_ds3, reference = test3$Sepsis, 
-                positive = "positiv")
-
-# Alternative: Imputation nach Breiman:
+# Imputation nach Breiman:
 
 ds3_imputed <- rfImpute(train3$Sepsis ~ ., train3) %>% 
   dplyr::rename(Sepsis = `train3$Sepsis`)
@@ -559,24 +519,13 @@ rf_ds3 <- train(x = ds3_imputed[,3:40],
 
 rf_ds3
 
-# Hier werden Tetsdaten nicht automatisch imputiert
-pred_rf_ds3 <- predict(rf_ds3$finalModel, rfImpute(Sepsis ~., test3)[,-1], type = "class")
-confusionMatrix(data = pred_rf_ds3, reference = test3$Sepsis, positive = "positiv")
-```
+rf_ds3_final <- rf_ds3$finalModel
 
-Medianimputation liefert bessere Ergebnisse als die RandomForest-Imputationsmethode. 
-Somit gibt es keinen Grund, die rechenintensivere Methode zu wählen. 
-```{r evaluation rf}
-confusionMatrix(data = pred_rf_proc_ds1, reference = test1$Sepsis, positive = "positiv")
-confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis, positive = "positiv")
-confusionMatrix(data = pred_rf_proc_ds2, reference = test2$Sepsis, positive = "positiv")
-confusionMatrix(data = pred_rf_ds2, reference = test2$Sepsis, positive = "positiv")
-confusionMatrix(data = pred_rf_proc_ds3, reference = test3$Sepsis, positive = "positiv")
-confusionMatrix(data = pred_rf_ds3, reference = test3$Sepsis, positive = "positiv")
+# Testdaten werden nicht automatisch imputiert
+pred_rf_ds3 <- predict(rf_ds3$finalModel, rfImpute(Sepsis ~., test3)[,-1], type = "response")
+confusionMatrix(data = pred_rf_ds3_test, reference = test3$Sepsis, positive = "positiv")
 ```
-Dataset 3 (Slopes) mit Medianimput liefert die besten Ergebnisse.
-
-Als Alternative soll aber versucht werden, nur die Variablen mit relativ wenig fehlenden Werten (< 30%) als Prädiktoren zu verwenden und dann nur vollständige Beobachtungen einzubeziehen.
+Als Alternative soll  versucht werden, nur die Variablen mit relativ wenig fehlenden Werten (< 30%) als Prädiktoren zu verwenden und dann nur vollständige Beobachtungen einzubeziehen.
 Frage: Vollständig heißt, dass in keinem Prädiktor der Wert fehlt. -> Wie groß ist dann das verbleibende Dataset? Das kann wesentlich kleiner als 70% sein. -> Prüfen.
 
 ```{r rf non-missing ds1}
@@ -585,44 +534,58 @@ set.seed(12345)
 vis_miss(dataset1)
 miss_var_summary(dataset1)
 
-train1_2 <- train1 %>% 
-  select(Resp, SBP, MAP,	O2Sat, HR, Age,	Gender,	HospAdmTime, ICULOS)
+train1_2 <- train1[, which(colMeans(!is.na(train1)) > 0.7)] %>% 
+  filter(complete.cases(.)) # na.action = na.omit in train funktioniert nur mit
+                            # Formula-Methode, aber aufgrund des unterschiedlichen Umgangs
+                            # mit Faktorvariablen funktioniert predict...finalModel nur
+                            # mit x,y-Methode -> hier auf vollständige Fälle einschränken
 
-rf_nm_ds1 <- train(x = train1_2,
-                  y = train1$Sepsis,
-                  method = "rpart",
+rf_nm_ds1 <- train(x = train1_2[4:12],
+                   y = train1_2$Sepsis,
+                  method = "rf",
                   na.action = na.omit,
-#                 tuneGrid = cp_grid,
+                  tuneGrid = mtry_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
 rf_nm_ds1
 
-pred_rf_nm_ds1 <- predict(rf_nm_ds1$finalModel, test1, type = "class")
-confusionMatrix(data = pred_rf_nm_ds1, reference = test1$Sepsis, positive = "positiv")
+# Vorhersagen nur für vollständige Beobachtungen
+test1_2 <- test1[, colnames(train1_2)] %>% 
+  filter(complete.cases(.))
+
+pred_rf_nm_ds1 <- predict(rf_nm_ds1$finalModel, test1_2, type = "class")
+confusionMatrix(data = pred_rf_nm_ds1, reference = test1_2$Sepsis, positive = "positiv")
 ```
+
 ```{r rf non-missing ds2}
 set.seed(12345)
 
 vis_miss(dataset2)
 miss_var_summary(dataset2)
 
-train2_2 <- train2 %>% 
-  select(WBC, Platelets, Creatinine, BUN, Hct,Potassium,	Glucose, Resp, SBP, O2Sat,
-         MAP, HR, Temp, Age, Gender, HospAdmTime)
+train2_2 <- train2[, which(colMeans(!is.na(train2)) > 0.7)] %>% 
+  filter(complete.cases(.)) # na.action = na.omit in train funktioniert nur mit
+                            # Formula-Methode, aber aufgrund des unterschiedlichen Umgangs
+                            # mit Faktorvariablen funktioniert predict...finalModel nur
+                            # mit x,y-Methode -> hier auf vollständige Fälle einschränken
 
-rf_nm_ds2 <- train(x = train2_2,
-                  y = train2$Sepsis,
-                  method = "rpart",
+rf_nm_ds2 <- train(x = train2_2[4:12],
+                   y = train2_2$Sepsis,
+                  method = "rf",
                   na.action = na.omit,
-#                 tuneGrid = cp_grid,
+                  tuneGrid = mtry_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
 rf_nm_ds2
 
-pred_rf_nm_ds2 <- predict(rf_nm_ds2$finalModel, test2, type = "class")
-confusionMatrix(data = pred_rf_nm_ds2, reference = test2$Sepsis, positive = "positiv")
+# Vorhersagen nur für vollständige Beobachtungen
+test2_2 <- test2[, colnames(train2_2)] %>% 
+  filter(complete.cases(.))
+
+pred_rf_nm_ds2 <- predict(rf_nm_ds2$finalModel, test2_2, type = "class")
+confusionMatrix(data = pred_rf_nm_ds2, reference = test2_2$Sepsis, positive = "positiv")
 ```
 
 ```{r rf non-missing ds3}
@@ -631,26 +594,45 @@ set.seed(12345)
 vis_miss(dataset3)
 miss_var_summary(dataset3)
 
-train3_2 <- train3 %>% 
-  select(slope_DBP, slope_Calcium, slope_Magnesium, slope_WBC, slope_Platelets,
-         slope_Hct, slope_Creatinine, slope_BUN, slope_Potassium, slope_Glucose,
-         slope_Temp, slope_SBP, slope_MAP, slope_Resp, slope_O2Sat, slope_HR, Age,
-         Gender, HospAdmTime, ICULOS)
+train3_2 <- train3[, which(colMeans(!is.na(train3)) > 0.7)] %>% 
+  filter(complete.cases(.)) # na.action = na.omit in train funktioniert nur mit
+                            # Formula-Methode, aber aufgrund des unterschiedlichen Umgangs
+                            # mit Faktorvariablen funktioniert predict...finalModel nur
+                            # mit x,y-Methode -> hier auf vollständige Fälle einschränken
 
-rf_nm_ds3 <- train(x = train3_2,
-                  y = train3$Sepsis,
-                  method = "rpart",
+rf_nm_ds3 <- train(x = train3_2[4:12],
+                   y = train3_2$Sepsis,
+                  method = "rf",
                   na.action = na.omit,
-#                 tuneGrid = cp_grid,
+                  tuneGrid = mtry_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
 rf_nm_ds3
 
-pred_rf_nm_ds3 <- predict(rf_nm_ds3$finalModel, test3, type = "class")
-confusionMatrix(data = pred_rf_nm_ds3, reference = test3$Sepsis, positive = "positiv")
+# Vorhersagen nur für vollständige Beobachtungen
+test3_2 <- test3[, colnames(train3_2)] %>% 
+  filter(complete.cases(.))
+
+pred_rf_nm_ds3 <- predict(rf_nm_ds3$finalModel, test3_2, type = "class")
+confusionMatrix(data = pred_rf_nm_ds3, reference = test3_2$Sepsis, positive = "positiv")
 ```
 
+```{r resamples, include = TRUE}
+results <- resamples(list(ds1_cart_raw = cart_ds1, ds1_cart_median = cart_proc_ds1,
+                          ds2_cart_raw = cart_ds2, ds2_cart_median = cart_proc_ds2,
+                          ds3_cart_raw = cart_ds3, ds3_cart_median = cart_proc_ds3,
+                          ds1_rf_rfImpute = rf_ds1, ds1_rf_nonmissing = rf_nm_ds1,
+                          ds2_rf_rfImpute = rf_ds2, ds2_rf_nonmissing = rf_nm_ds2,
+                           ds3_rf_rfImpute = rf_ds3, ds3_rf_nonmissing = rf_nm_ds3))
+
+# summarize the distributions
+summary(results)
+
+# dot plots of results
+dotplot(results)
+```
+Achtung: Sensitivität und Spezifität sind vertauscht!
 ```{r vars description, include = TRUE, echo = FALSE, cache = TRUE}
 knitr::kable(var_info, booktabs = T,
              caption = "Datensatzbeschreibung (Variablen)") %>%
