@@ -15,7 +15,7 @@ output:
 fontsize: 12pt
 editor_options: 
   markdown: 
-    wrap: 72
+    wrap: 80
 ---
 
 ```{r setup, include=FALSE}
@@ -23,6 +23,7 @@ knitr::opts_chunk$set(
   echo = FALSE,
   include = FALSE,
   cache = TRUE,
+  cache.comments = FALSE,
   fig.pos = "H")
 ```
 
@@ -41,12 +42,6 @@ library(ranger)
 library(naniar)
 ```
 
-```{r session info, include = TRUE}
-sessioninfo::platform_info()$version
-subset(data.frame(sessioninfo::package_info()), attached == TRUE, 
-       c(package, loadedversion))
-```
-
 ```{r loading data, cache = TRUE}
 data_complete <- read.csv(here("data/Dataset.csv"))
 
@@ -54,6 +49,7 @@ var_info <- read.csv2(
   here("data/Datensatzbeschreibung.csv")
   )
 ```
+
 ```{r Subsampling}
 # Subsample ziehen, um die Datenmenge besser handhaben zu können
 set.seed(12345)
@@ -67,6 +63,21 @@ data_sample_index <- data_complete %>%
 data_sample <- data_complete %>% 
   filter(Patient_ID %in% data_sample_index$Patient_ID)
 ```
+
+# Einleitung
+
+Eine Sepsis ist eine sehr ernste gesundheitliche Komplikation, insbesondere auf 
+Intensivstationen. Die Sterblichkeitsrate liegt bei schweren Verläufen je nach 
+genauer Abgrenzung der Diagnosen bei um die 50% und höher. Eine frühzeitige Erkennung 
+und damit einhergehend eine rechtzeitige Therapie gelten als wichtigste Mittel zur
+Verbesserung der Überlebensrate. 
+
+In dem geplanten Projekt sollen daher Möglichkeiten untersucht werden, eine Sepsis
+anhand diverser Blutwerte und Vitalparameter, die üblicherweise im Rahmen von
+Intensivbehandlungen erhoben werden, mittels prädiktiver Modelle zu erkennen, bevor
+sie klinisch diagnostiziert wird.
+
+# Datenexploration und -bereinigung
 
 ```{r data structure}
 summary(data_sample)
@@ -82,9 +93,22 @@ outcome <- data_sample %>%
 
 table(outcome$Sepsis)
 ```
-Es fallen zwei Fehler in den Daten auf:
-1. FiO2 (inspiratorische Sauerstofffraktion) drückt einen Anteil aus und muss daher zwischen 0 und 1 liegen. Die Werte außerhalb dieses Bereichs werden daher entfernt.
-2. HospAdmTime, die Zeit zwischen Hospitalisierung und Verlegung auf die Intensivstation, ist je nach Berechnung entweder positiv oder negativ, kann aber nicht sowohl positive als auch negative Werte annehmen, da niemand auf die Intensivstation verlegt werden kann, bevor er überhaupt im Krankenhaus ist. Es ist daher naheliegend, dass unterschiedliche Berechnungen (Aufnahmezeitpunkt_gesamt-Aufnahmezeitpunkt_Intensiv und Aufnahmezeitpunkt_Intensiv-Aufnahmezeitpunkt_gesamt) vorgenomen worden. Ich vereinheitliche hier auf positive Vorzeichen, da diese für die Interpretation geeigneter sind ("Zeit, die zwischen Aufnahme im Krankenhaus und Aufnahme auf der ITS vergangen ist").
+Bei Betrachtung der Zusammenfassung des Datensatzes fallen zwei Fehler auf:
+
+1. *FiO2* (inspiratorische Sauerstofffraktion) drückt einen Anteil aus und muss 
+daher zwischen 0 und 1 liegen. Die Werte außerhalb dieses Bereichs werden daher 
+entfernt.
+
+2. *HospAdmTime*, die Zeit zwischen Hospitalisierung und Verlegung auf die 
+Intensivstation, ist je nach Berechnung entweder positiv oder negativ, kann aber
+nicht sowohl positive als auch negative Werte annehmen, da niemand auf die 
+Intensivstation verlegt werden kann, bevor er überhaupt im Krankenhaus ist. Es 
+ist daher naheliegend, dass unterschiedliche Berechnungen 
+(Aufnahmezeitpunkt_gesamt - Aufnahmezeitpunkt_Intensiv und 
+Aufnahmezeitpunkt_Intensiv - Aufnahmezeitpunkt_gesamt) vorgenomen worden. Ich 
+vereinheitliche hier auf positive Vorzeichen, da diese für die Interpretation 
+geeigneter sind ("Zeit, die zwischen Aufnahme im Krankenhaus und Aufnahme auf der 
+ITS vergangen ist").
 
 ```{r data cleaning}
 data_sample %>%
@@ -113,13 +137,16 @@ data_sample <- data_sample %>%
 
 outcome <- outcome %>% 
   mutate(Sepsis = factor(Sepsis, levels = c(1, 0),
-                         labels = c("positiv", "negativ")
-                         )
+                         labels = c("positiv", "negativ") # "positiv" muss 1. Klasse sein, damit caret
+                         )                                # später die Gütemaße geeignet zuordnet
          )
 
-# Zur weiteren Verwendung wird jedem Datensatz der Outcome über den gesamten # Zeitraum hinzugefügt
+# Zur weiteren Verwendung wird jedem Datensatz der Outcome über den gesamten Zeitraum hinzugefügt
 data_sample <- merge(data_sample, outcome, by = "Patient_ID")
 ```
+
+Wir analysieren die Daten nun auf Korrelationen zwischen den numerischen Variablen 
+und betrachten dazu eine Heatmap der Korrelationskoeffizienten nach Pearson:
 
 ```{r data correlation, fig.height=8, fig.width=12, message=TRUE, warning=FALSE, include = TRUE}
 data_sample %>% 
@@ -130,11 +157,20 @@ data_sample %>%
   labs(title = "Korrelationskoeffizienten nach Pearson")
 ```
 
-Baum-basierte Methoden funktionieren auch bei starker Multikollinearität gut, da sukzessive einzelne Variablen für die Splits herangezogen werden. Liefert eine Variable keinen oder kaum Informationsgewinn, weil sie stark mit einer vorher bereits zum Split genutzten Variable korreliert, wird sie nicht verwendet. Daher müssen wir uns hier keine allzu großen Sorgen um die Korrelationen machen. Allerdings sollten starke Kollinearitäten später bei der Interpretation der Entscheidungskriterien berücksichtigt werden. Es ist möglich, dass nicht die eigentlich relevante Variable für einen Split herangezogen wird, sondern eine, die stark mit ihr korreliert ist.
+Baum-basierte Methoden funktionieren auch bei starker Multikollinearität gut, da 
+sukzessive einzelne Variablen für die Splits herangezogen werden. Liefert eine 
+Variable keinen oder kaum Informationsgewinn, weil sie stark mit einer vorher 
+bereits zum Split genutzten Variable korreliert, wird sie nicht verwendet. Daher
+müssen wir uns hier keine allzu großen Sorgen um die Korrelationen machen. Allerdings 
+sollten starke Kollinearitäten später bei der Interpretation der Entscheidungskriterien 
+berücksichtigt werden. Es ist möglich, dass nicht die eigentlich relevante Variable 
+für einen Split herangezogen wird, sondern eine, die stark mit ihr korreliert ist.
 
-Bei Variablen mit vollständigen linearen Zusammenhang (Korrelationskoeffizient +/- 1) scheint mir allerdings eine Variablenselektion dennoch angeraten.
+Bei Variablen mit vollständigen linearen Zusammenhang (Korrelationskoeffizient +/- 1) 
+ist eine Variablenselektion dennoch angeraten:
 
-Hour dient nur zur Information und soll nicht als Einflussvariable verwendet werden. Daher kann sie hier vernachlässigt werden.
+Hour dient nur zur Information und soll nicht als Einflussvariable verwendet werden.
+Daher kann sie hier vernachlässigt werden.
 
 ```{r Bilirubin}
 data_sample %>% 
@@ -145,9 +181,11 @@ data_sample %>%
   filter(is.na(Bilirubin_direct) & !is.na(Bilirubin_total)) %>% 
   summarize(n())
 ```
-Da es nur sehr wenige Beobachtungen gibt, in denen das Gesamt-Bilirubin fehlt, aber direkts Bilirubin gemessen wurde, andersherum jedoch einige Beobachtungen existieren, die eine Messung des Gesamt-Bilirubins enthalten, abre keine des direkten Bilirubins, wird die Variable Bilirubin_direct aus dem Datensatz entfernt.
 
-Hämoglobin- und Hämatokrit-Wert entsprechen einander ungefähr, weil die Erythrozyten den Großteil des Gesamtvolumens der Blutzellen ausmachen.
+Da es nur sehr wenige Beobachtungen gibt, in denen das Gesamt-Bilirubin fehlt, 
+aber direkts Bilirubin gemessen wurde, andersherum jedoch einige Beobachtungen 
+existieren, die eine Messung des Gesamt-Bilirubins enthalten, aber keine des 
+direkten Bilirubins, wird die Variable Bilirubin_direct aus dem Datensatz entfernt.
 
 ```{r Hct Hgb}
 data_sample %>% 
@@ -159,12 +197,25 @@ data_sample %>%
   summarize(n())
 ```
 
-Ich entscheide daher auch hier nach Vollständigkeit der Beobachtungen und entferne die Variable Hgb aus dem Datensatz.
+Hämoglobin- und Hämatokrit-Wert entsprechen einander ungefähr, weil die Erythrozyten 
+den Großteil des Gesamtvolumens der Blutzellen ausmachen  \footnote{https://www.gesundheit.gv.at/labor/laborwerte/blutbild/haematokrit-hkt}.
+Ich entscheide daher auch hier nach Vollständigkeit der Beobachtungen und entferne 
+die Variable Hgb aus dem Datensatz.
 
 ```{r variable selection}
 data_sample <- data_sample %>% 
   select(-Bilirubin_direct, -Hgb)
 ```
+
+Bei Betrachtung der Boxplots der möglichen numerischen Einflussfaktoren fällt 
+keine Variable durch besonders deutliche Unterschiede zwischen Patienten mit und 
+ohne Sepsis auf.
+
+Da schwerwiegende Erkrankungen durchaus extreme medizinische Werte hervorbringen 
+können, ist es schwierig festzulegen, wann Ausreißer Messfehler sind und daher 
+aus der Betrachtung herausgenommen werden sollten. Zudem sind Baum-basierte 
+Methoden robust gegenüber Ausreißern. Deshalb werden hier keine weiteren 
+Beobachtungen entfernt.
 
 ```{r boxplots, include = TRUE, warning = FALSE, fig.height=8, fig.width=10, fig.cap="Boxplots der numerischen Einflussfaktoren"}
 # Numerische Einflussfaktoren in Bezug zum temporären Sepsisstatus
@@ -183,11 +234,8 @@ p
 rm(melt_sample, p)
 ```
 
-Bei Betrachtung der Boxplots der möglichen numerischen Einflussfaktoren fällt keine Variable durch besonders deutliche Unterschiede zwischen Patienten mit und ohne Sepsis auf.
-
-Da schwerwiegende Erkrankungen durchaus extreme medizinische Werte hervorbringen können, ist es schwierig festzulegen, wann Ausreißer Messfehler sind und daher aus der Betrachtung herausgenommen werden sollten. Zudem sind Baum-basierte Methoden robust gegenüber Ausreißern. Deshalb werden hier keine weiteren Beobachtungen entfernt.
-
-Da Temperatur und Blutwerte häufig nur einmal tägöich bestimmt werden, macht es Sinn, diese bei fehlenden Werten bis zu 24 Stunden fortzuschreiben (LOCF).
+Da Temperatur und Blutwerte häufig nur einmal täglich bestimmt werden, wurden 
+diese bei fehlenden Werten bis zu 24 Stunden fortgeschrieben (LOCF).
 
 ```{r LOCF imputation, warnings = FALSE}
 data_sample_imputed <- data_sample %>% 
@@ -206,6 +254,43 @@ data_sample_imputed <- data_sample %>%
   as.data.frame()
 ```
 
+# Methoden und Ergebnisse
+
+Nach den grundlegenden Vorbereitungen aus dem vorigen Kapitel ergeben sich zwei 
+wesentliche Herausforderungen aus der Datenstruktur:
+
+Zum einen fehlen in vielen Variablen sehr viele Werte. Es muss also ein Weg gefunden 
+werden, dennoch gute Ergebnisse zu erhalten.
+
+Zum anderen müssen die longitudinalen Daten für die Anwendung Baum-basierter Verfahren 
+zu je einer Beobachtung pro Patient zusammengefasst werden. Dazu werden drei Ansätze
+miteinander verglichen:
+
+1. **Baseline-Datensatz:** Es werden alle Datensätze mit Hour = 1, d. h. die zweite 
+vorliegende Messung, verwendet. Die Wahl fällt deshalb nicht auf die erste Messung,
+weil in dieser besonders viele Werte fehlen. Es ist zu beachten, dass der Zeitpunkt
+der ersten Messung nicht notwendigerweise mit der Aufnahme auf die Intensivstation
+zusammenfällt.
+\newline Dieses Vorgehen entspricht einer einmaligen Beurteilung der Patienten zu 
+Beginn der Intensivbehandlung bzw. zum erstmöglichen Zeitpunkt.
+
+2. **Onset-Datensatz:** Für Sepsispatienten wird die erste mit einem positiven 
+Outcome gelabelte Beobachtung verwendet. Für Nicht-Sepsispatienten wird eine 
+Beobachtung zufällig ausgewählt, da nicht bekannt ist, wann ein solcher Patient 
+der Entwicklung einer Sepsis am nächsten war.
+\newline Dieser Ansatz simuliert eine regelmäßige Klassifikation liegender 
+Intensivpatienten anhand ihrer jeweils aktuellen klinischen Parameter.
+
+3. **Regressionsdatensatz:** Für jeden Patienten wird mittels linearer Regression 
+die Entwicklung jeder einbezogenen Variable modelliert und der patientenindividuelle 
+Slope als Prädiktor verwendet. Dabei wird für Nicht-Sepsispatienten der gesamte 
+Beobachtungszeitraum einbezogen und für Sepsispatienten der Zeitraum bis zum ersten 
+positiven Outcome.
+\newline Dies entspricht einer regelmäßigen Klassifikation der Patienten anhand 
+aller ihrer bis dahin vorliegenden Parameter.
+
+Die drei entstandenen Datensätze werden anschließend jeweils in einen Trainings- und Validierungsdatensatz mit 75% der Beobachtungen und einen Testdatensatz mit
+den restlichen 25% der Beobachtungen aufgeteilt.
 
 ```{r creating baseline dataset}
 # Es sollen die Messwerte zur Stunde 1 verwendet werden, aber für den Outcome
@@ -213,8 +298,6 @@ data_sample_imputed <- data_sample %>%
 dataset1 <- data_sample_imputed %>%
   filter(Hour == 1) %>%
   select(-SepsisLabel)
-
-levels(dataset1$Sepsis)
 ```
 
 ```{r creating onset dataset}
@@ -302,7 +385,7 @@ set.seed(12345)
 # der train_index für Datensatz 1 kann auch für Datensatz 2 genutzt werden (gleiche Patienten, gleicher Outcome)
 train_index1 <- createDataPartition(dataset1$Sepsis, p = 0.75, list = FALSE)
 
-#Datensatz 3 benötigt einen anderen train_index, da hier nicht alle Patienten enthalten sind
+# Datensatz 3 benötigt einen anderen train_index, da hier nicht alle Patienten enthalten sind
 train_index3 <- createDataPartition(dataset3$Sepsis, p = 0.75, list = FALSE)
 
 train1 <- dataset1[train_index1,]
@@ -313,6 +396,11 @@ train3 <- dataset3[train_index3,]
 test3  <- dataset3[-train_index3,]
 ```
 
+In den nächsten Abschnitten werden Entscheidungsbäume und Ensembles für jeweils
+einen Datensatz angepasst. Das Tuning der Parameter und der Modellvergleich 
+erfolgt mittels des R-Pakets *caret*.
+Aufgrund der sehr unausgewogenen Daten (Eventrate %) wird ein Upsampling vorgenommen.
+
 ```{r caret models control}
 set.seed(12345)
 
@@ -320,9 +408,13 @@ ctrl <- trainControl(method = "cv", number = 5,
                      classProbs = TRUE,
                      summaryFunction = twoClassSummary,
                      sampling = "up")
-
-#cp_grid <- expand.grid(cp = seq(0, 0.01, by = 0.0001))
 ```
+
+## Der Baseline-Ansatz
+
+## Der Onset-Ansatz
+
+## Der Regressionsansatz
 
 ```{r caret cart models ds1, include = TRUE}
 set.seed(12345)
@@ -330,7 +422,6 @@ set.seed(12345)
 cart_ds1 <- train(x = train1[,4:41],
                   y = train1$Sepsis,
                   method = "rpart",
-#                  tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -352,7 +443,6 @@ cart_proc_ds1 <- train(x = train1[,4:41],
                   y = train1$Sepsis,
                   preProcess = "medianImpute",
                   method = "rpart",
-#                 tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -372,7 +462,6 @@ set.seed(12345)
 cart_ds2 <- train(x = train2[,4:41],
                   y = train2$Sepsis,
                   method = "rpart",
-#                 tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -395,7 +484,6 @@ cart_proc_ds2 <- train(x = train2[,4:41],
                   y = train2$Sepsis,
                   preProcess = "medianImpute",
                   method = "rpart",
-#                 tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -415,7 +503,6 @@ set.seed(12345)
 cart_ds3 <- train(x = train3[,3:40],
                   y = train3$Sepsis,
                   method = "rpart",
-#                 tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -432,12 +519,11 @@ confusionMatrix(data = pred_cart_ds3, reference = test3$Sepsis, positive = "posi
 
 ```{r caret cart models ds3 preprocessed, include = TRUE}
 set.seed(12345)
-# macht eigentlich keinen Sinn!!
+# Median der Veränderung scheint wenig sinnvoll, aber dennoch zum Vergleich
 cart_proc_ds3 <- train(x = train3[,3:40],
                   y = train3$Sepsis,
                   preProcess = "medianImpute",
                   method = "rpart",
-#                 tuneGrid = cp_grid,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -604,7 +690,7 @@ confusionMatrix(data = pred_rfr_ds3, reference = test3$Sepsis, positive = "posit
 Als Alternative soll  versucht werden, nur die Variablen mit relativ wenig fehlenden Werten (< 30%) als Prädiktoren zu verwenden und dann nur vollständige Beobachtungen einzubeziehen.
 Frage: Vollständig heißt, dass in keinem Prädiktor der Wert fehlt. -> Wie groß ist dann das verbleibende Dataset? Das kann wesentlich kleiner als 70% sein. -> Prüfen.
 
-```{r rf non-missing ds1}
+```{r rf non-missing ds1, include = TRUE}
 set.seed(12345)
 
 vis_miss(dataset1)
@@ -641,7 +727,7 @@ pred_rf_nm_ds1 <- predict(rf_nm_ds1, test1_2)
 confusionMatrix(data = pred_rf_nm_ds1, reference = test1_2$Sepsis, positive = "positiv")
 ```
 
-```{r rf non-missing ds2}
+```{r rf non-missing ds2, include = TRUE}
 set.seed(12345)
 
 vis_miss(dataset2)
@@ -678,7 +764,7 @@ pred_rf_nm_ds2 <- predict(rf_nm_ds2, test2_2)
 confusionMatrix(data = pred_rf_nm_ds2, reference = test2_2$Sepsis, positive = "positiv")
 ```
 
-```{r rf non-missing ds3}
+```{r rf non-missing ds3, include = TRUE}
 set.seed(12345)
 
 vis_miss(dataset3)
@@ -794,9 +880,23 @@ summary(results)
 dotplot(results)
 ```
 
-```{r vars description, include = TRUE, echo = FALSE}
+# Anhang
+
+Es wurden folgende Pakete und Versionen von R genutzt:
+
+```{r session info, include = TRUE}
+sessioninfo::platform_info()$version
+subset(data.frame(sessioninfo::package_info()), attached == TRUE, 
+       c(loadedversion))
+```
+
+```{r vars description, include = TRUE}
 knitr::kable(var_info, booktabs = T,
              caption = "Datensatzbeschreibung (Variablen)") %>%
   kable_styling(latex_options = c("striped", "scale_down"),
                 position = "center")
 ```
+
+# Referenzen
+
+
