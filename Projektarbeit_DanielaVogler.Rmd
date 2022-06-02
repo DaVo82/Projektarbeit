@@ -35,11 +35,9 @@ library(gridExtra)
 library(reshape)
 library(rpart)
 library(rpart.plot)
-library(party)
-library(rJava)
-library(RWeka)
 library(caret)
 library(randomForest)
+library(ranger)
 library(naniar)
 ```
 
@@ -114,8 +112,8 @@ data_sample <- data_sample %>%
   )
 
 outcome <- outcome %>% 
-  mutate(Sepsis = factor(Sepsis, levels = c(0, 1),
-                         labels = c("negativ", "positiv")
+  mutate(Sepsis = factor(Sepsis, levels = c(1, 0),
+                         labels = c("positiv", "negativ")
                          )
          )
 
@@ -215,6 +213,8 @@ data_sample_imputed <- data_sample %>%
 dataset1 <- data_sample_imputed %>%
   filter(Hour == 1) %>%
   select(-SepsisLabel)
+
+levels(dataset1$Sepsis)
 ```
 
 ```{r creating onset dataset}
@@ -454,10 +454,38 @@ confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, positive = 
 ```
 
 ```{r tune grid rf}
-mtry_grid <-  expand.grid(mtry = seq(2,38,3))
+#mtry_grid <-  expand.grid(mtry = seq(2,38,3))
+
+rf_grid <- expand.grid(
+  .mtry = seq(2,38,3),
+  .splitrule = "gini",
+  .min.node.size = seq(5, 20, 5)
+)
 ```
 
 ```{r caret rf model ds1, include = TRUE}
+# set.seed(12345)
+# 
+# # Imputation nach Breiman:
+# 
+# ds1_imputed <- rfImpute(train1$Sepsis ~ ., train1) %>%
+#   dplyr::rename(Sepsis = `train1$Sepsis`) %>%
+#   relocate(Sepsis, .after = ICULOS)
+# 
+# rf_ds1 <- train(x = ds1_imputed[,4:41],
+#                   y = train1$Sepsis,
+#                   method = "rf",
+#                   tuneGrid = mtry_grid,
+#                   metric = "ROC",
+#                   trControl = ctrl)
+# 
+# rf_ds1
+# 
+# # Testdaten werden nicht automatisch imputiert
+# pred_rf_ds1 <- predict(rf_ds1, rfImpute(Sepsis ~., test1)[-1])
+# confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis, positive = "positiv")
+```
+```{r caret rf model ds1 ranger, include = TRUE}
 set.seed(12345)
 
 # Imputation nach Breiman:
@@ -466,21 +494,45 @@ ds1_imputed <- rfImpute(train1$Sepsis ~ ., train1) %>%
   dplyr::rename(Sepsis = `train1$Sepsis`) %>%
   relocate(Sepsis, .after = ICULOS)
 
-rf_ds1 <- train(x = ds1_imputed[,4:41],
+rfr_ds1 <- train(x = ds1_imputed[,4:41],
                   y = train1$Sepsis,
-                  method = "rf",
-                  tuneGrid = mtry_grid,
+                  method = "ranger",
+                  tuneGrid = rf_grid,
+                  num.trees = 500,
+                  importance = "permutation", #impurity
                   metric = "ROC",
                   trControl = ctrl)
 
-rf_ds1
+rfr_ds1
 
 # Testdaten werden nicht automatisch imputiert
-pred_rf_ds1 <- predict(rf_ds1, rfImpute(Sepsis ~., test1)[-1])
-confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis, positive = "positiv")
+pred_rfr_ds1 <- predict(rfr_ds1, rfImpute(Sepsis ~., test1)[-1])
+confusionMatrix(data = pred_rfr_ds1, reference = test1$Sepsis, positive = "positiv")
 ```
 
 ```{r caret rf model ds2, include = TRUE,}
+# set.seed(12345)
+# 
+# # Imputation nach Breiman:
+# 
+# ds2_imputed <- rfImpute(train2$Sepsis ~ ., train2) %>%
+#   dplyr::rename(Sepsis = `train2$Sepsis`) %>%
+#   relocate(Sepsis, .after = ICULOS)
+# 
+# rf_ds2 <- train(x = ds2_imputed[,4:41],
+#                   y = train2$Sepsis,
+#                   method = "rf",
+#                   tuneGrid = mtry_grid,
+#                   metric = "ROC",
+#                   trControl = ctrl)
+# 
+# rf_ds2
+# 
+# # Testdaten werden nicht automatisch imputiert
+# pred_rf_ds2 <- predict(rf_ds2, rfImpute(Sepsis ~., test2)[,-1])
+# confusionMatrix(data = pred_rf_ds2, reference = test2$Sepsis, positive = "positiv")
+```
+```{r caret rf model ds2 ranger, include = TRUE}
 set.seed(12345)
 
 # Imputation nach Breiman:
@@ -489,21 +541,44 @@ ds2_imputed <- rfImpute(train2$Sepsis ~ ., train2) %>%
   dplyr::rename(Sepsis = `train2$Sepsis`) %>%
   relocate(Sepsis, .after = ICULOS)
 
-rf_ds2 <- train(x = ds2_imputed[,4:41],
+rfr_ds2 <- train(x = ds2_imputed[,4:41],
                   y = train2$Sepsis,
-                  method = "rf",
-                  tuneGrid = mtry_grid,
+                  method = "ranger",
+                  tuneGrid = rf_grid,
+                  num.trees = 500,
+                  importance = "permutation", #impurity
                   metric = "ROC",
                   trControl = ctrl)
 
-rf_ds2
+rfr_ds2
 
 # Testdaten werden nicht automatisch imputiert
-pred_rf_ds2 <- predict(rf_ds2, rfImpute(Sepsis ~., test2)[,-1])
-confusionMatrix(data = pred_rf_ds2, reference = test2$Sepsis, positive = "positiv")
+pred_rfr_ds2 <- predict(rfr_ds2, rfImpute(Sepsis ~., test2)[-1])
+confusionMatrix(data = pred_rfr_ds2, reference = test2$Sepsis, positive = "positiv")
 ```
 
 ```{r caret rf model ds3, include = TRUE}
+# set.seed(12345)
+# 
+# # Imputation nach Breiman:
+# 
+# ds3_imputed <- rfImpute(train3$Sepsis ~ ., train3) %>%
+#   dplyr::rename(Sepsis = `train3$Sepsis`)
+# 
+# rf_ds3 <- train(x = ds3_imputed[,3:40],
+#                   y = train3$Sepsis,
+#                   method = "rf",
+#                   tuneGrid = mtry_grid,
+#                   metric = "ROC",
+#                   trControl = ctrl)
+# 
+# rf_ds3
+# 
+# # Testdaten werden nicht automatisch imputiert
+# pred_rf_ds3 <- predict(rf_ds3, rfImpute(Sepsis ~., test3)[,-1])
+# confusionMatrix(data = pred_rf_ds3, reference = test3$Sepsis, positive = "positiv")
+```
+```{r caret rf model ds3 ranger, include = TRUE}
 set.seed(12345)
 
 # Imputation nach Breiman:
@@ -511,18 +586,20 @@ set.seed(12345)
 ds3_imputed <- rfImpute(train3$Sepsis ~ ., train3) %>%
   dplyr::rename(Sepsis = `train3$Sepsis`)
 
-rf_ds3 <- train(x = ds3_imputed[,3:40],
+rfr_ds3 <- train(x = ds3_imputed[,3:40],
                   y = train3$Sepsis,
-                  method = "rf",
-                  tuneGrid = mtry_grid,
+                  method = "ranger",
+                  tuneGrid = rf_grid,
+                  num.trees = 500,
+                  importance = "permutation", #impurity
                   metric = "ROC",
                   trControl = ctrl)
 
-rf_ds3
+rfr_ds3
 
 # Testdaten werden nicht automatisch imputiert
-pred_rf_ds3 <- predict(rf_ds3, rfImpute(Sepsis ~., test3)[,-1])
-confusionMatrix(data = pred_rf_ds3, reference = test3$Sepsis, positive = "positiv")
+pred_rfr_ds3 <- predict(rfr_ds3, rfImpute(Sepsis ~., test3)[-1])
+confusionMatrix(data = pred_rfr_ds3, reference = test3$Sepsis, positive = "positiv")
 ```
 Als Alternative soll  versucht werden, nur die Variablen mit relativ wenig fehlenden Werten (< 30%) als Prädiktoren zu verwenden und dann nur vollständige Beobachtungen einzubeziehen.
 Frage: Vollständig heißt, dass in keinem Prädiktor der Wert fehlt. -> Wie groß ist dann das verbleibende Dataset? Das kann wesentlich kleiner als 70% sein. -> Prüfen.
@@ -535,11 +612,22 @@ miss_var_summary(dataset1)
 
 train1_2 <- train1[, which(colMeans(!is.na(train1)) > 0.7)] 
 
-rf_nm_ds1 <- train(Sepsis ~ HR:ICULOS,
+# Entsprechend muss mtry im TuneGrid angepasst werden:
+n_var1 <- train1_2 %>% 
+  select(-Patient_ID, -X, -Hour, -Sepsis) %>% 
+  ncol()
+  
+rf_grid1 <- expand.grid(
+  .mtry = seq(2,n_var1,3),
+  .splitrule = "gini",
+  .min.node.size = seq(5, 20, 5)
+)
+
+rf_nm_ds1 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
                   data = train1_2,
-                  method = "rf",
+                  method = "ranger",
                   na.action = na.omit,
-                  tuneGrid = mtry_grid,
+                  tuneGrid = rf_grid1,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -561,11 +649,22 @@ miss_var_summary(dataset2)
 
 train2_2 <- train2[, which(colMeans(!is.na(train2)) > 0.7)] 
 
-rf_nm_ds2 <- train(Sepsis ~ HR:ICULOS,
+# Entsprechend muss mtry im TuneGrid angepasst werden:
+n_var2 <- train2_2 %>% 
+  select(-Patient_ID, -X, -Hour, -Sepsis) %>% 
+  ncol()
+  
+rf_grid2 <- expand.grid(
+  .mtry = seq(2,n_var2,3),
+  .splitrule = "gini",
+  .min.node.size = seq(5, 20, 5)
+)
+
+rf_nm_ds2 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
                   data = train2_2,
-                  method = "rf",
+                  method = "ranger",
                   na.action = na.omit,
-                  tuneGrid = mtry_grid,
+                  tuneGrid = rf_grid2,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -587,11 +686,22 @@ miss_var_summary(dataset3)
 
 train3_2 <- train3[, which(colMeans(!is.na(train3)) > 0.7)]
 
-rf_nm_ds3 <- train(Sepsis ~ Age:slope_Platelets,
+# Entsprechend muss mtry im TuneGrid angepasst werden:
+n_var3 <- train3_2 %>% 
+  select(-Patient_ID, -Sepsis) %>% 
+  ncol()
+  
+rf_grid3 <- expand.grid(
+  .mtry = seq(2,n_var3,3),
+  .splitrule = "gini",
+  .min.node.size = seq(5, 20, 5)
+)
+
+rf_nm_ds3 <- train(Sepsis ~ . - Patient_ID - Sepsis,
                   data = train3_2,
-                  method = "rf",
+                  method = "ranger",
                   na.action = na.omit,
-                  tuneGrid = mtry_grid,
+                  tuneGrid = rf_grid3,
                   metric = "ROC",
                   trControl = ctrl)
 
@@ -622,7 +732,7 @@ gbm_ds1 <- train(x = train1[,4:41],
                   distribution = "bernoulli", # Adaboost und Huber führen zu mehr richtig positiven,
                                               # aber auch sehr vielen falsch positiven
                   metric = "ROC",
-                #  tuneGrid = gbm_grid,
+                  tuneGrid = gbm_grid,
                   trControl = ctrl,
                   verbose = FALSE)
 
@@ -672,9 +782,9 @@ confusionMatrix(data = pred_gbm_ds3, reference = test3$Sepsis, positive = "posit
 results <- resamples(list(ds1_cart_raw = cart_ds1, ds1_cart_median = cart_proc_ds1,
                           ds2_cart_raw = cart_ds2, ds2_cart_median = cart_proc_ds2,
                           ds3_cart_raw = cart_ds3, ds3_cart_median = cart_proc_ds3,
-                          ds1_rf_rfImpute = rf_ds1, ds1_rf_nonmissing = rf_nm_ds1,
-                          ds2_rf_rfImpute = rf_ds2, ds2_rf_nonmissing = rf_nm_ds2,
-                          ds3_rf_rfImpute = rf_ds3, ds3_rf_nonmissing = rf_nm_ds3,
+                          ds1_rf_rfImpute = rfr_ds1, ds1_rf_nonmissing = rf_nm_ds1,
+                          ds2_rf_rfImpute = rfr_ds2, ds2_rf_nonmissing = rf_nm_ds2,
+                          ds3_rf_rfImpute = rfr_ds3, ds3_rf_nonmissing = rf_nm_ds3,
                           ds1_gbm = gbm_ds1, ds2_gbm = gbm_ds2, ds3_gbm = gbm_ds3))
 
 # summarize the distributions
@@ -684,7 +794,7 @@ summary(results)
 dotplot(results)
 ```
 
-```{r vars description, include = TRUE, echo = FALSE, cache = TRUE}
+```{r vars description, include = TRUE, echo = FALSE}
 knitr::kable(var_info, booktabs = T,
              caption = "Datensatzbeschreibung (Variablen)") %>%
   kable_styling(latex_options = c("striped", "scale_down"),
