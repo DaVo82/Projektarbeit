@@ -3,9 +3,6 @@ title: "Detektion von Sepsiserkrankungen in Intensivpatienten"
 subtitle: "Projektarbeit im Zertifikatsprogramm \"Medical Data Science\""
 author: "Daniela Vogler"
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
-header-includes:
-  \renewcommand{\tablename}{Tabelle}
-  \renewcommand{\contentsname}{Inhalt}
 output: 
   pdf_document:
   toc: true
@@ -13,10 +10,13 @@ output:
   keep_tex: yes
   number_sections: true
 bibliography: bibliography.bib
+header-includes:
+  \renewcommand{\tablename}{Tabelle}
+  \renewcommand{\contentsname}{Inhalt}
 fontsize: 12pt
 editor_options: 
   markdown: 
-    wrap: 80
+  wrap: 80
 ---
 
 ```{r setup, include=FALSE}
@@ -25,7 +25,8 @@ knitr::opts_chunk$set(
   include = FALSE,
   cache = TRUE,
   cache.comments = FALSE,
-  fig.pos = "H")
+  fig.pos = "H",
+  options(knitr.table.format = "latex"))
 ```
 
 ```{r requirements, include = FALSE, cache = FALSE}
@@ -151,13 +152,12 @@ data_sample <- merge(data_sample, outcome, by = "Patient_ID")
 Wir analysieren die Daten nun auf Korrelationen zwischen den numerischen Variablen 
 und betrachten dazu eine Heatmap der Korrelationskoeffizienten nach Pearson:
 
-```{r data correlation, fig.height=8, fig.width=12, message=TRUE, warning=FALSE, include = TRUE}
+```{r data correlation, fig.cap="Korrelationskoeffizienten nach Pearson", fig.height=8, fig.width=12, message=TRUE, warning=FALSE, include = TRUE}
 data_sample %>% 
   select_if(is.numeric) %>%  
   select(-Patient_ID, -X) %>% 
   GGally::ggcorr(method = c("pairwise.complete.obs", "pearson"),
-         label = TRUE, label_size = 2, label_alpha = TRUE) + 
-  labs(title = "Korrelationskoeffizienten nach Pearson")
+         label = TRUE, label_size = 2, label_alpha = TRUE) 
 ```
 
 Baum-basierte Methoden funktionieren auch bei starker Multikollinearität gut, da 
@@ -271,7 +271,7 @@ Zum anderen müssen die longitudinalen Daten für die Anwendung Baum-basierter
 Verfahren zu je einer Beobachtung pro Patient zusammengefasst werden. Dazu werden 
 drei Ansätze miteinander verglichen:
 
-1. **Baseline-Datensatz:** Es werden alle Datensätze mit Hour = 1, d. h. die zweite
+**1. Baseline-Datensatz:** Es werden alle Datensätze mit Hour = 1, d. h. die zweite
 vorliegende Messung, verwendet. Die Wahl fällt deshalb nicht auf die erste Messung,
 weil in dieser besonders viele Werte fehlen. Es ist zu beachten, dass der Zeitpunkt
 der ersten Messung nicht notwendigerweise mit der Aufnahme auf die Intensivstation
@@ -279,15 +279,15 @@ zusammenfällt.
 \newline Dieses Vorgehen entspricht einer einmaligen Beurteilung der Patienten zu 
 Beginn der Intensivbehandlung bzw. zum erstmöglichen Zeitpunkt.
 
-2. **Onset-Datensatz:** Für Sepsispatienten wird die erste mit einem positiven 
+**2. Onset-Datensatz:** Für Sepsispatienten wird die erste mit einem positiven 
 Outcome gelabelte Beobachtung verwendet. Für Nicht-Sepsispatienten wird eine 
 Beobachtung zufällig ausgewählt, da nicht bekannt ist, wann ein solcher Patient 
 der Entwicklung einer Sepsis am nächsten war.
 \newline Dieser Ansatz simuliert eine regelmäßige Klassifikation liegender 
 Intensivpatienten anhand ihrer jeweils aktuellen klinischen Parameter.
 
-3. **Regressionsdatensatz:** Für jeden Patienten wird mittels linearer Regression 
-die Entwicklung jeder einbezogenen Variable modelliert und der
+**3. Regressionsdatensatz:** Für jeden Patienten wird mittels linearer Regression 
+die Entwicklung jeder Prädiktorvariable modelliert und der
 patientenindividuelle Slope als Prädiktor verwendet. Dabei wird für 
 Nicht-Sepsispatienten der gesamte Beobachtungszeitraum einbezogen und für
 Sepsispatienten der Zeitraum bis zum ersten positiven Outcome.
@@ -409,7 +409,7 @@ test3  <- dataset3[-train_index3,]
 
 In den nächsten Abschnitten werden Entscheidungsbäume und Ensembles für jeweils
 einen Datensatz angepasst. Das Tuning der Parameter und der Modellvergleich 
-erfolgt mittels des R-Pakets *caret*.
+erfolgen mittels des R-Pakets *caret*.
 Es wird eine 5-fache Kreuzvalidierung und aufgrund der sehr unausgewogenen Daten
 (Eventrate `r prettyNum(
   round(
@@ -423,14 +423,20 @@ Sensitivität als auch Spezifität eine hohe Relevanz für die Fragestellung hab
 Je höher die Sensitivität, desto mehr Patienten können frühzeitig behandelt werden,
 je niedriger die Spezifität, desto mehr Patienten werden möglicherweise aufgrund
 der Klassifizierung unnötigen Therapien unterzogen. Eine häufige Wahl ist in
-solchen Situationen die *Area under the Curve* (ROC). In Anbetracht der 
-unausgewogenen Daten kommen aber auch die PRROC-Metrik (*Area under the Precision
-Recall Curve*) und die F1-Metrik (harmonisches Mittel aus Precision und Recall)
-infrage. Nach Tests mit einem Teil der in dieser Arbeit evaluierten Modelle ist
-hier die Entscheidung für die F1-Metrik gefallen. Diese Wahl ist nach den vorigen
-Überlegungen auch intuitiv nachvollziehbar, da gleichermaßen der Anteil der richtig
-positiven an den Events als auch der Anteil der richtig positiven an den positiv
-klassifizierten eingeht.
+solchen Situationen die *Area under the Curve (ROC)*. Für stark unausgewogene Daten
+sind aber Metriken, die auf Precision und Recall beruhen, von Vorteil. Daher bieten
+sich hier die *Area under the Precision Recall Curve (AUC)* und die F1-Metrik
+(harmonisches Mittel aus Precision und Recall) an. 
+
+Wir werden später beim Modellvergleich sehen, dass die AUC-Metrik im Vergleich zur
+F1-Metrik falsch positive Klassifizierungen stärker bestraft und dafür eine
+niedrige Detektionsrate in Kauf nimmt. Für diese Arbeit ist die Entscheidung für
+die F1-Metrik gefallen. Sie berücksichtigt gleichermaßen den Anteil der richtig
+positiven an den Events als auch der Anteil der richtig positiven an den insgesamt
+positiv klassifizierten Beobachtungen, kann aber leicht so verallgemeinert werden,
+dass entweder der Recall (= Sensitivität) oder die Präzision stärker gewichtet
+werden. Eine flexible Anpassung beispielsweise im Rahmen einer klinischer Anwendung
+ist also gegeben.
 
 ```{r caret models control}
 set.seed(12345)
@@ -458,9 +464,11 @@ gbm_grid <-  expand.grid(interaction.depth = seq(1, 9, 2),
 
 ## Der Baseline-Ansatz
 
-Ein CART-Modell:
+Es wird ein Entscheidungsbaum mit dem CART-Algorithmus (R-Paket *rpart*) erstellt.
+Da CART mit fehlenden Werten mittels Surrogate-Splits automatisch umgehen kann,
+ist kein Preprocessing notwendig.
 
-```{r caret cart models ds1, include = TRUE}
+```{r cart model ds1}
 set.seed(12345)
 
 cart_ds1 <- train(x = train1[,4:41],
@@ -468,51 +476,49 @@ cart_ds1 <- train(x = train1[,4:41],
                   method = "rpart",
                   metric = "F",
                   trControl = ctrl)
+```
 
-cart_ds1
+Das beste Modell ist: `r knitr::kable(cart_ds1$bestTune)`
 
+```{r cart model results ds1, include = TRUE, fig.cap="Entscheidungsbaum und Variablenwichtigkeit Baseline-Datensatz"}
 rpart.plot(cart_ds1$finalModel, type = 5)
-# rpart.rules(cart_ds1$finalModel)
 
 cart_ds1_Imp <- varImp(cart_ds1)
 plot(cart_ds1_Imp, top = 20)
+```
 
+```{r cart model test ds1}
 pred_cart_ds1 <- predict(cart_ds1, test1)
 confusionMatrix(data = pred_cart_ds1, reference = test1$Sepsis, 
                 positive = "positiv")
 ```
 
-Auch wenn der CART-Algorithmus mit fehlenden Werten umgehen kann, wird zum
-Vergleich ein weiterer Entscheidungsbaum mit Median-Imputation angepasst. der 
-Literatur zufolge sind Entscheidungsbäume robust gegen fehlende Werte bzw. 
-ungenaue Imputationen; deshalb wird diese grobe Methode verwendet:
-
-```{r caret cart models ds1 preprocessed, include = TRUE}
-set.seed(12345)
-
-cart_proc_ds1 <- train(x = train1[,4:41],
-                  y = train1$Sepsis,
-                  preProcess = "medianImpute",
-                  method = "rpart",
-                  metric = "F",
-                  trControl = ctrl)
-
-cart_proc_ds1
-rpart.plot(cart_proc_ds1$finalModel, type = 5)
-
-cart_proc_ds1_Imp <- varImp(cart_proc_ds1)
-plot(cart_proc_ds1_Imp, top = 20)
-
-pred_cart_proc_ds1 <- predict(cart_proc_ds1, test1)
-confusionMatrix(data = pred_cart_proc_ds1, reference = test1$Sepsis, 
-                positive = "positiv")
+```{r caret cart model ds1 preprocessed}
+# set.seed(12345)
+# 
+# cart_proc_ds1 <- train(x = train1[,4:41],
+#                   y = train1$Sepsis,
+#                   preProcess = "medianImpute",
+#                   method = "rpart",
+#                   metric = "F",
+#                   trControl = ctrl)
+# 
+# cart_proc_ds1
+# rpart.plot(cart_proc_ds1$finalModel, type = 5)
+# 
+# cart_proc_ds1_Imp <- varImp(cart_proc_ds1)
+# plot(cart_proc_ds1_Imp, top = 20)
+# 
+# pred_cart_proc_ds1 <- predict(cart_proc_ds1, test1)
+# confusionMatrix(data = pred_cart_proc_ds1, reference = test1$Sepsis, 
+#                 positive = "positiv")
 ```
 
 Des Weiteren werden Random Forests trainiert. Da diese Methode nicht mit fehlenden
 Werten funktioniert, wird zum einen die im R-Paket *randomForest* implementierte
-Imputation nach Breiman angewandt:
+Imputation nach Breiman angewandt [@Breiman]:
 
-```{r rf model ds1, include = TRUE}
+```{r rf model ds1}
 set.seed(12345)
 
 # Imputation nach Breiman:
@@ -521,7 +527,7 @@ ds1_imputed <- rfImpute(train1$Sepsis ~ ., train1) %>%
   dplyr::rename(Sepsis = `train1$Sepsis`) %>%
   relocate(Sepsis, .after = ICULOS)
 
-rfr_ds1 <- train(x = ds1_imputed[,4:41],
+rf_ds1 <- train(x = ds1_imputed[,4:41],
                   y = train1$Sepsis,
                   method = "ranger",
                   tuneGrid = rf_grid,
@@ -529,12 +535,14 @@ rfr_ds1 <- train(x = ds1_imputed[,4:41],
                   importance = "permutation", #impurity
                   metric = "F",
                   trControl = ctrl)
+```
 
-rfr_ds1
+Das beste Modell ist: `r knitr::kable(rf_ds1$bestTune)`
 
+```{r rf model test ds1}
 # Testdaten werden nicht automatisch imputiert
-pred_rfr_ds1 <- predict(rfr_ds1, rfImpute(Sepsis ~., test1)[-1])
-confusionMatrix(data = pred_rfr_ds1, reference = test1$Sepsis, 
+pred_rf_ds1 <- predict(rf_ds1, rfImpute(Sepsis ~., test1)[-1])
+confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis, 
                 positive = "positiv")
 ```
 
@@ -542,11 +550,12 @@ Als weiterer Ansatz wird der Datensatz auf diejenigen Prädiktoren mit weniger a
 30 % fehlenden Werten eingeschränkt und anschließend  nur die vollständigen
 Beobachtungen einbezogen:
 
-```{r rf non-missing ds1, include = TRUE}
-set.seed(12345)
-
+```{r non-missings ds1, include = TRUE, , fig.cap="Fehlende Werte im Baseline-Datensatz"}
 vis_miss(dataset1)
-miss_var_summary(dataset1)
+```
+
+```{r rf non-missing ds1}
+set.seed(12345)
 
 train1_2 <- train1[, which(colMeans(!is.na(train1)) > 0.7)] 
 
@@ -568,9 +577,11 @@ rf_nm_ds1 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
                   tuneGrid = rf_grid1,
                   metric = "F",
                   trControl = ctrl)
+``` 
 
-rf_nm_ds1
+Das beste Modell ist: `r knitr::kable(rf_nm_ds1$bestTune)`
 
+```{r rf non-missing test df1}
 # Vorhersagen nur für vollständige Beobachtungen
 test1_2 <- test1[, colnames(train1_2)] %>%
   filter(complete.cases(.))
@@ -586,7 +597,7 @@ zurückgreifende Ensemble-Verfahren darauf, sukzessive die Vorhersagen für fals
 klassifizierte Beobachtungen zu verbessern. Hier wird nun zum Vergleich ein 
 Stochastic Gradient Boosting mit dem R-Palet *gbm* durchgeführt:
 
-```{r gbm model ds1, include = TRUE}
+```{r gbm model ds1}
 set.seed(12345)
 
 gbm_ds1 <- train(x = train1[,4:41],
@@ -599,21 +610,22 @@ gbm_ds1 <- train(x = train1[,4:41],
                   tuneGrid = gbm_grid,
                   trControl = ctrl,
                   verbose = FALSE)
+```
 
-gbm_ds1
+Das beste Modell ist: `r knitr::kable(gbm_ds1$bestTune)`
 
+```{r bm model test ds1}
 pred_gbm_ds1 <- predict(gbm_ds1, test1)
 confusionMatrix(data = pred_gbm_ds1, reference = test1$Sepsis, 
                 positive = "positiv")
 ```
+
 ## Der Onset-Ansatz
 
 Auch für den Onset-Datensatz werden zunächst Entscheidungsbäume mit dem
-CART-Algorithmus angepasst.
+CART-Algorithmus angepasst und der Einfluss der Prädiktoren visualisiert:
 
-Ohne Imputation:
-
-```{r caret cart models ds2, include = TRUE}
+```{r cart model ds2}
 set.seed(12345)
 
 cart_ds2 <- train(x = train2[,4:41],
@@ -622,44 +634,47 @@ cart_ds2 <- train(x = train2[,4:41],
                   metric = "F",
                   trControl = ctrl)
 
-cart_ds2
+```
+
+Das beste Modell ist: `r knitr::kable(cart_ds2$bestTune)`
+
+```{r cart model results ds2, include = TRUE, fig.cap="Entscheidungsbaum und Variablenwichtigkeit Onset-Datensatz"}
 rpart.plot(cart_ds2$finalModel, type = 5)
-# rpart.rules(cart_ds2$finalModel)
 
 cart_ds2_Imp <- varImp(cart_ds2)
 plot(cart_ds2_Imp, top = 20)
+```
 
+```{r {r cart model test ds2}
 pred_cart_ds2 <- predict(cart_ds2, test2)
 confusionMatrix(data = pred_cart_ds2, reference = test2$Sepsis, 
                 positive = "positiv")
 ```
 
-Mit Median-Imputation:
-
-```{r caret cart models ds2 preprocessed, include = TRUE}
-set.seed(12345)
-
-cart_proc_ds2 <- train(x = train2[,4:41],
-                  y = train2$Sepsis,
-                  preProcess = "medianImpute",
-                  method = "rpart",
-                  metric = "F",
-                  trControl = ctrl)
-
-cart_proc_ds2
-rpart.plot(cart_proc_ds2$finalModel, type = 5)
-
-cart_proc_ds2_Imp <- varImp(cart_proc_ds2)
-plot(cart_proc_ds2_Imp, top = 20)
-
-pred_cart_proc_ds2 <- predict(cart_proc_ds2, test2)
-confusionMatrix(data = pred_cart_proc_ds2, reference = test2$Sepsis,
-                positive = "positiv")
+```{r cart model ds2 preprocessed}
+# set.seed(12345)
+# 
+# cart_proc_ds2 <- train(x = train2[,4:41],
+#                   y = train2$Sepsis,
+#                   preProcess = "medianImpute",
+#                   method = "rpart",
+#                   metric = "F",
+#                   trControl = ctrl)
+# 
+# cart_proc_ds2
+# rpart.plot(cart_proc_ds2$finalModel, type = 5)
+# 
+# cart_proc_ds2_Imp <- varImp(cart_proc_ds2)
+# plot(cart_proc_ds2_Imp, top = 20)
+# 
+# pred_cart_proc_ds2 <- predict(cart_proc_ds2, test2)
+# confusionMatrix(data = pred_cart_proc_ds2, reference = test2$Sepsis,
+#                 positive = "positiv")
 ```
 
 Es folgen die Random Forests - zunächst mit Imputation nach Breiman:
 
-```{r rf model ds2, include = TRUE}
+```{r rf model ds2}
 set.seed(12345)
 
 # Imputation nach Breiman:
@@ -668,7 +683,7 @@ ds2_imputed <- rfImpute(train2$Sepsis ~ ., train2) %>%
   dplyr::rename(Sepsis = `train2$Sepsis`) %>%
   relocate(Sepsis, .after = ICULOS)
 
-rfr_ds2 <- train(x = ds2_imputed[,4:41],
+rf_ds2 <- train(x = ds2_imputed[,4:41],
                   y = train2$Sepsis,
                   method = "ranger",
                   tuneGrid = rf_grid,
@@ -676,23 +691,26 @@ rfr_ds2 <- train(x = ds2_imputed[,4:41],
                   importance = "permutation", #impurity
                   metric = "F",
                   trControl = ctrl)
+```
 
-rfr_ds2
+Das beste Modell ist: `r knitr::kable(rf_ds2$bestTune)`
 
+```{r rf model test ds2}
 # Testdaten werden nicht automatisch imputiert
-pred_rfr_ds2 <- predict(rfr_ds2, rfImpute(Sepsis ~., test2)[-1])
-confusionMatrix(data = pred_rfr_ds2, reference = test2$Sepsis, 
+pred_rf_ds2 <- predict(rf_ds2, rfImpute(Sepsis ~., test2)[-1])
+confusionMatrix(data = pred_rf_ds2, reference = test2$Sepsis, 
                 positive = "positiv")
 ```
 
 Dann mit Einschränkung auf Prädiktoren mit weniger als 30 % fehlenden Werten
 und vollständige Beobachtungen:
 
-```{r rf non-missing ds2, include = TRUE}
-set.seed(12345)
-
+```{r non-missings ds2, include = TRUE, fig.cap="Fehlende Werte im Onset-Datensatz"}
 vis_miss(dataset2)
-miss_var_summary(dataset2)
+```
+
+```{r rf non-missing ds2}
+set.seed(12345)
 
 train2_2 <- train2[, which(colMeans(!is.na(train2)) > 0.7)] 
 
@@ -714,9 +732,11 @@ rf_nm_ds2 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
                   tuneGrid = rf_grid2,
                   metric = "F",
                   trControl = ctrl)
+```
 
-rf_nm_ds2
+Das beste Modell ist: `r knitr::kable(rf_nm_ds2$bestTune)`
 
+```{r rf non-missing test ds2}
 # Vorhersagen nur für vollständige Beobachtungen
 test2_2 <- test2[, colnames(train2_2)] %>%
   filter(complete.cases(.))
@@ -728,7 +748,7 @@ confusionMatrix(data = pred_rf_nm_ds2, reference = test2_2$Sepsis,
 
 Und schließlich wird ein Gradient Boosting durchgeführt:
 
-```{r gbm model ds2, include = TRUE}
+```{r gbm model ds2}
 set.seed(12345)
 
 gbm_ds2 <- train(x = train2[,4:41],
@@ -739,9 +759,11 @@ gbm_ds2 <- train(x = train2[,4:41],
                   tuneGrid = gbm_grid,
                   trControl = ctrl,
                   verbose = FALSE)
+```
 
-gbm_ds2
+Das beste Modell ist: `r knitr::kable(gbm_ds2$bestTune)`
 
+```{r gbm model test ds2}
 pred_gbm_ds2 <- predict(gbm_ds2, test2)
 confusionMatrix(data = pred_gbm_ds2, reference = test2$Sepsis, 
                 positive = "positiv")
@@ -751,9 +773,9 @@ confusionMatrix(data = pred_gbm_ds2, reference = test2$Sepsis,
 
 Auch für den Regressionsdatensatz werden die gleichen Verfahren benutzt.
 
-CART:
+Mit dem CART-Algorithmus ergibt sich:
 
-```{r caret cart models ds3, include = TRUE}
+```{r cart model ds3}
 set.seed(12345)
 
 cart_ds3 <- train(x = train3[,3:40],
@@ -761,45 +783,47 @@ cart_ds3 <- train(x = train3[,3:40],
                   method = "rpart",
                   metric = "F",
                   trControl = ctrl)
+```
 
-cart_ds3
+Das beste Modell ist: `r knitr::kable(cart_ds3$bestTune)`
+
+```{r cart model results ds3, include = TRUE, fig.cap="Entscheidungsbaum und Variablenwichtigkeit Regressionsdatensatz"}
 rpart.plot(cart_ds3$finalModel, type = 5)
-# rpart.rules(cart_ds3$finalModel)
 
 cart_ds3_Imp <- varImp(cart_ds3)
 plot(cart_ds3_Imp, top = 20)
+```
 
+```{r cart model test ds3}
 pred_cart_ds3 <- predict(cart_ds3, test3)
 confusionMatrix(data = pred_cart_ds3, reference = test3$Sepsis, 
                 positive = "positiv")
 ```
 
-CART nach Median-Imputation:
-
-```{r caret cart models ds3 preprocessed, include = TRUE}
-set.seed(12345)
-# Median der Veränderung scheint wenig sinnvoll, aber dennoch zum Vergleich
-cart_proc_ds3 <- train(x = train3[,3:40],
-                  y = train3$Sepsis,
-                  preProcess = "medianImpute",
-                  method = "rpart",
-                  metric = "F",
-                  trControl = ctrl)
-
-cart_proc_ds3
-rpart.plot(cart_proc_ds3$finalModel, type = 5)
-
-cart_proc_ds3_Imp <- varImp(cart_proc_ds3)
-plot(cart_proc_ds3_Imp, top = 20)
-
-pred_cart_proc_ds3 <- predict(cart_proc_ds3, test3)
-confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, 
-                positive = "positiv")
+```{r caret cart model ds3 preprocessed}
+# set.seed(12345)
+# # Median der Veränderung scheint wenig sinnvoll, aber dennoch zum Vergleich
+# cart_proc_ds3 <- train(x = train3[,3:40],
+#                   y = train3$Sepsis,
+#                   preProcess = "medianImpute",
+#                   method = "rpart",
+#                   metric = "F",
+#                   trControl = ctrl)
+# 
+# cart_proc_ds3
+# rpart.plot(cart_proc_ds3$finalModel, type = 5)
+# 
+# cart_proc_ds3_Imp <- varImp(cart_proc_ds3)
+# plot(cart_proc_ds3_Imp, top = 20)
+# 
+# pred_cart_proc_ds3 <- predict(cart_proc_ds3, test3)
+# confusionMatrix(data = pred_cart_proc_ds3, reference = test3$Sepsis, 
+#                 positive = "positiv")
 ```
 
 Random Forest mit Imputation nach Breiman:
 
-```{r rf model ds3, include = TRUE}
+```{r rf model ds3}
 set.seed(12345)
 
 # Imputation nach Breiman:
@@ -807,7 +831,7 @@ set.seed(12345)
 ds3_imputed <- rfImpute(train3$Sepsis ~ ., train3) %>%
   dplyr::rename(Sepsis = `train3$Sepsis`)
 
-rfr_ds3 <- train(x = ds3_imputed[,3:40],
+rf_ds3 <- train(x = ds3_imputed[,3:40],
                   y = train3$Sepsis,
                   method = "ranger",
                   tuneGrid = rf_grid,
@@ -815,23 +839,26 @@ rfr_ds3 <- train(x = ds3_imputed[,3:40],
                   importance = "permutation", #impurity
                   metric = "F",
                   trControl = ctrl)
+```
 
-rfr_ds3
+Das beste Modell ist: `r knitr::kable(rf_ds3$bestTune)`
 
+```{r rf model test ds3}
 # Testdaten werden nicht automatisch imputiert
-pred_rfr_ds3 <- predict(rfr_ds3, rfImpute(Sepsis ~., test3)[-1])
-confusionMatrix(data = pred_rfr_ds3, reference = test3$Sepsis,
+pred_rf_ds3 <- predict(rf_ds3, rfImpute(Sepsis ~., test3)[-1])
+confusionMatrix(data = pred_rf_ds3, reference = test3$Sepsis,
                 positive = "positiv")
 ```
 
 Random Forest nach Einschränkung der Prädiktoren und auf vollständige
 Beobachtungen:
 
-```{r rf non-missing ds3, include = TRUE}
-set.seed(12345)
-
+```{r non-missings ds3, include = TRUE, fig.cap="fehlende Werte im Regressionsdatensatz"}
 vis_miss(dataset3)
-miss_var_summary(dataset3)
+```
+
+```{r rf non-missing ds3}
+set.seed(12345)
 
 train3_2 <- train3[, which(colMeans(!is.na(train3)) > 0.7)]
 
@@ -853,9 +880,11 @@ rf_nm_ds3 <- train(Sepsis ~ . - Patient_ID - Sepsis,
                   tuneGrid = rf_grid3,
                   metric = "F",
                   trControl = ctrl)
+```
 
-rf_nm_ds3
+Das beste Modell ist: `r knitr::kable(rf_nm_ds3$bestTune)`
 
+```{r rf non-missing test ds3}
 # Vorhersagen nur für vollständige Beobachtungen
 test3_2 <- test3[, colnames(train3_2)] %>%
   filter(complete.cases(.))
@@ -867,7 +896,7 @@ confusionMatrix(data = pred_rf_nm_ds3, reference = test3_2$Sepsis,
 
 Gradient Boosting:
 
-```{r gbm model ds3, include = TRUE}
+```{r gbm model ds3}
 set.seed(12345)
 
 gbm_ds3 <- train(x = train3[,3:40],
@@ -879,9 +908,11 @@ gbm_ds3 <- train(x = train3[,3:40],
                   tuneGrid = gbm_grid,
                   trControl = ctrl,
                   verbose = FALSE)
+```
 
-gbm_ds3
+Das beste Modell ist: `r knitr::kable(gbm_ds3$bestTune)`
 
+```{r gbm model test ds3}
 pred_gbm_ds3 <- predict(gbm_ds3, test3)
 confusionMatrix(data = pred_gbm_ds3, reference = test3$Sepsis, 
                 positive = "positiv")
@@ -889,17 +920,43 @@ confusionMatrix(data = pred_gbm_ds3, reference = test3$Sepsis,
 
 ## Vergleich der Modelle
 
-```{r resamples, include = TRUE}
-results <- resamples(list(ds1_cart_raw = cart_ds1, ds1_cart_median = cart_proc_ds1,
-                          ds2_cart_raw = cart_ds2, ds2_cart_median = cart_proc_ds2,
-                          ds3_cart_raw = cart_ds3, ds3_cart_median = cart_proc_ds3,
-                          ds1_rf_rfImpute = rfr_ds1, ds1_rf_nonmissing = rf_nm_ds1,
-                          ds2_rf_rfImpute = rfr_ds2, ds2_rf_nonmissing = rf_nm_ds2,
-                          ds3_rf_rfImpute = rfr_ds3, ds3_rf_nonmissing = rf_nm_ds3,
-                          ds1_gbm = gbm_ds1, ds2_gbm = gbm_ds2, ds3_gbm = gbm_ds3))
+```{r resamples statistics, include = TRUE}
+results <- resamples(list(ds1_cart = cart_ds1,
+                          ds2_cart = cart_ds2,
+                          ds3_cart = cart_ds3,
+                          ds1_rf_rfImpute = rf_ds1, 
+                          ds1_rf_nonmissing = rf_nm_ds1,
+                          ds2_rf_rfImpute = rf_ds2, 
+                          ds2_rf_nonmissing = rf_nm_ds2,
+                          ds3_rf_rfImpute = rf_ds3, 
+                          ds3_rf_nonmissing = rf_nm_ds3,
+                          ds1_gbm = gbm_ds1, 
+                          ds2_gbm = gbm_ds2, 
+                          ds3_gbm = gbm_ds3))
 
-summary(results)
+knitr::kable(summary(results)$statistics$F, booktabs = T,
+             caption = "F-Metrik") %>%
+  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+                position = "center")
 
+knitr::kable(summary(results)$statistics$AUC, booktabs = T,
+             caption = "AUC") %>%
+  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+                position = "center")
+
+knitr::kable(summary(results)$statistics$Precision, booktabs = T,
+             caption = "Precision") %>%
+  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+                position = "center")
+
+knitr::kable(summary(results)$statistics$Recall, booktabs = T,
+             caption = "Recall") %>%
+  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+                position = "center")
+```
+
+
+```{r resamples plot, include = TRUE}
 dotplot(results)
 ```
 
@@ -907,17 +964,17 @@ dotplot(results)
 
 Es wurden folgende Pakete und Versionen von R genutzt:
 
-```{r session info, include = TRUE}
+```{r session info, include = TRUE, cache = FALSE}
 sessioninfo::platform_info()$version
 subset(data.frame(sessioninfo::package_info()), attached == TRUE, 
        c(loadedversion))
 ```
 
 ```{r vars description, include = TRUE}
-# knitr::kable(var_info, booktabs = T,
-#              caption = "Datensatzbeschreibung (Variablen)") %>%
-#   kable_styling(latex_options = c("striped", "scale_down"),
-#                 position = "center")
+knitr::kable(var_info, booktabs = T,
+             caption = "Datensatzbeschreibung (Variablen)") %>%
+  kable_styling(latex_options = c("striped", "scale_down"),
+                position = "center")
 ```
 
 # Referenzen
