@@ -9,10 +9,26 @@ output:
     toc_depth: 2
     number_sections: true
     keep_tex: yes
-header-includes: 
-  \usepackage{float}
-  \renewcommand{\tablename}{Tabelle}
-  \renewcommand{\contentsname}{Inhalt}
+header-includes:
+  - \renewcommand{\tablename}{Tabelle}
+  - \renewcommand{\contentsname}{Inhalt}
+  - \renewcommand{\figurename}{Abb.}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage{threeparttablex}
+  - \usepackage[normalem]{ulem}
+  - \usepackage[utf8]{inputenc}
+  - \usepackage{makecell}
+  - \usepackage{xcolor}
+  - \floatplacement{figure}{H}
 bibliography: bibliography.bib
 fontsize: 12pt
 editor_options: 
@@ -20,15 +36,15 @@ editor_options:
   wrap: 80
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE, cache = FALSE}
 knitr::opts_chunk$set(
-  echo = FALSE,
-  include = FALSE,
-  warning = FALSE,
-  cache = TRUE,
-  cache.comments = FALSE,
-  fig.pos = "H",
-  options(knitr.table.format = "latex"))
+	echo = FALSE,
+	fig.pos = "H",
+	warning = FALSE,
+	cache = TRUE,
+	cache.comments = FALSE,
+	include = FALSE
+)
 ```
 
 ```{r requirements, include = FALSE, cache = FALSE}
@@ -70,6 +86,8 @@ data_sample <- data_complete %>%
   filter(Patient_ID %in% data_sample_index$Patient_ID)
 ```
 
+\newpage
+
 # Einleitung
 
 Eine Sepsis ist eine sehr ernste gesundheitliche Komplikation, insbesondere auf 
@@ -80,8 +98,9 @@ Mittel zur Verbesserung der Überlebensrate.
 
 In dem geplanten Projekt sollen daher Möglichkeiten untersucht werden, eine Sepsis
 anhand diverser Blutwerte und Vitalparameter, die üblicherweise im Rahmen von
-Intensivbehandlungen erhoben werden, mittels prädiktiver Modelle zu erkennen, bevor
-sie klinisch diagnostiziert wird.
+Intensivbehandlungen erhoben werden, mittels prädiktiver Modelle zu erkennen, bevor sie klinisch diagnostiziert wird.
+
+\newpage
 
 # Datenexploration und -bereinigung
 
@@ -155,7 +174,7 @@ data_sample <- merge(data_sample, outcome, by = "Patient_ID")
 Wir analysieren die Daten nun auf Korrelationen zwischen den numerischen Variablen 
 und betrachten dazu eine Heatmap der Korrelationskoeffizienten nach Pearson:
 
-```{r data correlation, fig.cap="Korrelationskoeffizienten nach Pearson", fig.height=8, fig.width=12, message=TRUE, warning=FALSE, include = TRUE}
+```{r data correlation, fig.cap="Korrelationskoeffizienten nach Pearson", fig.height=8, fig.width=12, message=FALSE, warning=FALSE, include = TRUE}
 data_sample %>% 
   select_if(is.numeric) %>%  
   select(-Patient_ID, -X) %>% 
@@ -261,6 +280,8 @@ data_sample_imputed <- data_sample %>%
   relocate(BaseExcess:Platelets, .after = EtCO2) %>% 
   as.data.frame()
 ```
+
+\newpage
 
 # Methoden und Ergebnisse
 
@@ -490,9 +511,9 @@ rpart.plot(cart_ds1$finalModel, type = 5)
 Dass die Zeitspanne zwischen Krankenhausaufnahme und Verlegung auf die ITS eine
 Rolle spielt, erscheint einleuchtend. Da hier jedoch gar keine weiteren Variablen
 herangezogen werden, wird noch ein Baum ohne *HospAdmTime* angepasst. Dieser wird
-mit Defaultparametern jedoch so tief, dass er nachträglich geprunt werden muss, 
-um visuelle Erkenntnisse aus der Baumstruktur zu ermöglichen. Der geeignete 
-Complexity-Parameter wurde durch manhuelles Ausprobierne bestimmt.
+mit Defaultparametern allerdings so tief, dass er nachträglich geprunt werden
+muss, um visuelle Erkenntnisse aus der Baumstruktur zu ermöglichen. Der geeignete 
+Complexity-Parameter wurde durch manuelles Ausprobieren bestimmt.
 
 ```{r cart model adjusted ds1}
 set.seed(12345)
@@ -647,7 +668,7 @@ rpart.plot(cart_ds2$finalModel, type = 5)
 Ähnlich wie beim Baseline-Ansatz wird hier nur eine Prädiktorvariable verwendet - in diesem Fall die Länge des Intensivaufenthalts. Analog zum Vorgehen im vorigen
 Abschnitt wird auch hier diese Variable ausgeschlossen:
 
-```{r cart adjusted model ds2}
+```{r cart model adjusted ds2}
 set.seed(12345)
 
 cart_adj_ds2 <- train(x = train2[,4:40],
@@ -911,9 +932,11 @@ confusionMatrix(data = pred_gbm_ds3, reference = test3$Sepsis,
                 positive = "positiv")
 ```
 
+\newpage
+
 ## Vergleich der Modelle
 
-```{r resamples statistics, include = TRUE, fig.pos="H"}
+```{r resamples}
 results <- resamples(list(ds1_cart = cart_ds1,
                           ds2_cart = cart_ds2,
                           ds3_cart = cart_ds3,
@@ -926,63 +949,95 @@ results <- resamples(list(ds1_cart = cart_ds1,
                           ds1_gbm = gbm_ds1, 
                           ds2_gbm = gbm_ds2, 
                           ds3_gbm = gbm_ds3))
+```
 
-knitr::kable(summary(results)$statistics$F, booktabs = T,
+```{r resamples F statistics, include = TRUE}
+knitr::kable(summary(results)$statistics$F, 
+             booktabs = T, 
              caption = "F-Metrik") %>%
-  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
-                position = "center")
-
-knitr::kable(summary(results)$statistics$AUC, booktabs = T,
-             caption = "AUC") %>%
-  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
-                position = "center")
-
-knitr::kable(summary(results)$statistics$Precision, booktabs = T,
-             caption = "Precision") %>%
-  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
-                position = "center")
-
-knitr::kable(summary(results)$statistics$Recall, booktabs = T,
-             caption = "Recall") %>%
   kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
                 position = "center")
 ```
 
+```{r resamples AUC statistics, include = TRUE}
+knitr::kable(summary(results)$statistics$AUC, 
+             booktabs = T, 
+             caption = "AUC") %>%
+  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+                position = "center")
+```
+
+```{r resamples precision statistics, include = TRUE}
+knitr::kable(summary(results)$statistics$Precision, 
+             booktabs = T, 
+             caption  = "Precision") %>%
+  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+                position = "center")
+```
+
+```{r resamples recall statistics, include = TRUE}
+knitr::kable(summary(results)$statistics$Recall, 
+             booktabs = T, 
+             caption  = "Recall") %>%
+  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+                position = "center")
+```
+
+\clearpage
 
 ```{r resamples plot, include = TRUE, fig.cap="Modellvergleich"}
 dotplot(results)
 ```
 
-```{r variable importance plots, include = TRUE, fig.cap="Variablenwichtigkeit"}
-p1 <- plot(varImp(cart_ds1), top = 20, main = "CART Baseline")
-
-p2 <- plot(varImp(cart_ds2), top = 20, main = "CART Onset")
-
-p3 <- plot(varImp(cart_ds3), top = 20, main = "CART Regression")
-
-p4 <- plot(varImp(rf_ds1), top = 20, main = "Random Forest Baseline")
-
-p5 <- plot(varImp(rf_ds2), top = 20, main = "Random Forest Onset")
-
-p6 <- plot(varImp(rf_ds3), top = 20, main = "Random Forest Regression")
-
-p7 <- plot(varImp(rf_nm_ds1), top = 20, 
-           main = "Random Forest (non-missing) Baseline")
-
-p8 <- plot(varImp(rf_nm_ds2), top = 20, 
-           main = "Random Forest (non-missing) Onset")
-
-p9 <- plot(varImp(rf_nm_ds3), top = 20, 
-           main = "Random Forest (non-missing) Regression")
-
-p10 <- plot(varImp(gbm_ds1), top = 20, main = "GBM Baseline")
-
-p11 <- plot(varImp(gbm_ds2), top = 20, main = "GBM Onset")
-
-p12 <- plot(varImp(gbm_ds3), top = 20, main = "GBM Regression")
-
-grid.arrange(p1, p2, p3, ncol = 3, nrow = 4)
+```{r variable importance plot1, include = TRUE, fig.cap="Variablenwichtigkeit CART Baseline"}
+plot(varImp(cart_ds1), top = 20, xlab = "")
 ```
+
+```{r variable importance plot2, include = TRUE, fig.cap="Variablenwichtigkeit  CART Onset"}
+plot(varImp(cart_ds2), top = 20, xlab = "")
+```
+
+```{r variable importance plot3, include = TRUE, fig.cap="Variablenwichtigkeit CART Regression"}
+plot(varImp(cart_ds3), top = 20, xlab = "")
+```
+
+```{r variable importance plot4, include = TRUE, fig.cap="Variablenwichtigkeit  Random Forest Baseline"}
+plot(varImp(rf_ds1), top = 20, xlab = "")
+```
+
+```{r variable importance plot5, include = TRUE, fig.cap="Variablenwichtigkeit Random Forest Onset"}
+plot(varImp(rf_ds2), top = 20, xlab = "")
+```
+
+```{r variable importance plot6, include = TRUE, fig.cap="Variablenwichtigkeit  Random Forest Regression"}
+plot(varImp(rf_ds3), top = 20, xlab = "")
+```
+
+```{r variable importance plot7, include = TRUE, fig.cap="Variablenwichtigkeit Random Forest (non-missing) Baseline"}
+plot(varImp(rf_nm_ds1), top = 20, xlab = "")
+```
+
+```{r variable importance plot8, include = TRUE, fig.cap="Variablenwichtigkeit  Random Forest (non-missing) Onset"}
+plot(varImp(rf_nm_ds2), top = 20, xlab = "")
+```
+
+```{r variable importance plot9, include = TRUE, fig.cap="Variablenwichtigkeit  Random Forest (non-missing) Regression"}
+plot(varImp(rf_nm_ds3), top = 20, xlab = "")
+```
+
+```{r variable importance plot10, include = TRUE, fig.cap="Variablenwichtigkeit GBM Baseline"}
+plot(varImp(gbm_ds1), top = 20, xlab = "")
+```
+
+```{r variable importance plot11, include = TRUE, fig.cap="Variablenwichtigkeit  GBM Onset"}
+plot(varImp(gbm_ds2), top = 20, xlab = "")
+```
+
+```{r variable importance plot12, include = TRUE, fig.cap="Variablenwichtigkeit  GBM Regression"}
+plot(varImp(gbm_ds3), top = 20, xlab = "")
+```
+
+\newpage
 
 # Anhang
 
@@ -1000,5 +1055,7 @@ knitr::kable(var_info, booktabs = T,
   kable_styling(latex_options = c("striped", "scale_down"),
                 position = "center")
 ```
+
+\newpage
 
 # Referenzen
