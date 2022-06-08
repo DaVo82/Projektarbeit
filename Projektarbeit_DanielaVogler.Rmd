@@ -62,7 +62,43 @@ library(randomForest)
 library(ranger)
 library(gbm)
 library(naniar)
+library(randomForestExplainer)
 ```
+
+\newpage
+
+# Einleitung
+
+Eine Sepsis ist eine sehr ernste gesundheitliche Komplikation, insbesondere auf 
+Intensivstationen. Die Sterblichkeitsrate liegt bei schweren Verläufen je nach 
+genauer Abgrenzung der Diagnosen bei um die 50% und höher. Eine frühzeitige
+Erkennung und damit einhergehend eine rechtzeitige Therapie gelten als wichtigste
+Mittel zur Verbesserung der Überlebensrate. 
+
+In dieser Arbeit werden daher Möglichkeiten untersucht, eine Sepsis anhand
+diverser Blutwerte und Vitalparameter, die üblicherweise im Rahmen von
+Intensivbehandlungen erhoben werden, mittels prädiktiver Modelle bereits zu
+erkennen, bevor sie klinisch diagnostiziert wird. Da der Einsatz von Machine
+Learning-Algorithmen zur medizinischen Entscheidungsfindung nicht überall 
+möglich und gewünscht ist, wird neben der Entwicklung von Vorhersagemodellen
+auch die Frage untersucht, ob Entscheidungsregeln zur Unterstützung ärztlicher
+Entscheidungen ableitbar sind.
+
+Die bearbeitete Fragestellung lässt sich wie folgt zusammenfassen: \newline
+1. Welche Entscheidungskriterien hinsichtlich einer Klassifikation von
+Intensivpatienten in die Kategorien "wird eine Sepsis entwickeln" und "wird keine
+Sepsis entwickeln" lassen sich mittels einzelner Entscheidungsbäume ableiten? \newline
+2. Welches Modell aus dem Bereich der baumbasierten Ensemblemethoden ist am 
+besten geeignet, um aus demografischen Daten, Blutwerten und Vitalparametern 
+eines Intensivpatienten vorherzusagen, ob dieser an einer Sepsis erkranken wird
+ (bzw. bereits unerkannt erkrankt ist)?
+
+Die verwendeten Daten stammen aus dem unter *Open Database License (ODbL)* 
+verfügbaren Kaggle-Datensatz *Dataset.csv* [@KaggleData; @Physionet]. 
+
+\newpage
+
+# Datenexploration und -bereinigung
 
 ```{r loading data, cache = TRUE}
 data_complete <- read.csv(here("data/Dataset.csv"))
@@ -86,23 +122,13 @@ data_sample <- data_complete %>%
   filter(Patient_ID %in% data_sample_index$Patient_ID)
 ```
 
-\newpage
-
-# Einleitung
-
-Eine Sepsis ist eine sehr ernste gesundheitliche Komplikation, insbesondere auf 
-Intensivstationen. Die Sterblichkeitsrate liegt bei schweren Verläufen je nach 
-genauer Abgrenzung der Diagnosen bei um die 50% und höher. Eine frühzeitige
-Erkennung und damit einhergehend eine rechtzeitige Therapie gelten als wichtigste
-Mittel zur Verbesserung der Überlebensrate. 
-
-In dem geplanten Projekt sollen daher Möglichkeiten untersucht werden, eine Sepsis
-anhand diverser Blutwerte und Vitalparameter, die üblicherweise im Rahmen von
-Intensivbehandlungen erhoben werden, mittels prädiktiver Modelle zu erkennen, bevor sie klinisch diagnostiziert wird.
-
-\newpage
-
-# Datenexploration und -bereinigung
+Für diese Arbeit wird ein zufälliges Subsample des oben angegebenen Datensatzes 
+mit `r nrow(data_sample)` Beobachtungen zu 
+`r length(unique(data_sample$Patient_ID))` Intensivpatienten verwendet. Die Daten
+umfassen neben einigen demografischen und administrativen Baseline-Angaben zum
+Fall acht Vitalparameter (Variablen 3-10) und 26 Blutwerte (Variablen 11-36), 
+siehe Tabelle \ref{vars_table} im Anhang. 
+Die Erfassung erfolgte stündlich; kontinuierlich gemessene Werte wurden gemittelt.
 
 ```{r data structure}
 summary(data_sample)
@@ -118,10 +144,12 @@ outcome <- data_sample %>%
 
 table(outcome$Sepsis)
 ```
-Bei Betrachtung der Zusammenfassung des Datensatzes fallen zwei Fehler auf:
+
+Bei Betrachtung der Zusammenfassung des Datensatzes fielen zwei Fehler auf, die
+wie folgt bereinigt wurden:
 
 1. *FiO2* (inspiratorische Sauerstofffraktion) drückt einen Anteil aus und muss 
-daher zwischen 0 und 1 liegen. Die Werte außerhalb dieses Bereichs werden daher 
+daher zwischen 0 und 1 liegen. Werte außerhalb dieses Bereichs wurden daher 
 entfernt.
 
 2. *HospAdmTime*, die Zeit zwischen Hospitalisierung und Verlegung auf die 
@@ -130,8 +158,8 @@ nicht sowohl positive als auch negative Werte annehmen, da niemand auf die
 Intensivstation verlegt werden kann, bevor er überhaupt im Krankenhaus ist. Es 
 ist daher naheliegend, dass unterschiedliche Berechnungen 
 (Aufnahmezeitpunkt_gesamt - Aufnahmezeitpunkt_Intensiv und 
-Aufnahmezeitpunkt_Intensiv - Aufnahmezeitpunkt_gesamt) vorgenomen worden. Ich 
-vereinheitliche hier auf positive Vorzeichen, da diese für die Interpretation 
+Aufnahmezeitpunkt_Intensiv - Aufnahmezeitpunkt_gesamt) vorgenomen worden. Hier
+wurde auf positive Vorzeichen vereinheitlicht, da diese für die Interpretation 
 geeigneter sind ("Zeit, die zwischen Aufnahme im Krankenhaus und Aufnahme auf der 
 ITS vergangen ist").
 
@@ -171,8 +199,9 @@ outcome <- outcome %>%
 data_sample <- merge(data_sample, outcome, by = "Patient_ID")
 ```
 
-Wir analysieren die Daten nun auf Korrelationen zwischen den numerischen Variablen 
-und betrachten dazu eine Heatmap der Korrelationskoeffizienten nach Pearson:
+Nun analysieren wir die Daten nun auf Korrelationen zwischen den numerischen
+Variablen und betrachten dazu eine Heatmap der Korrelationskoeffizienten nach
+Pearson:
 
 ```{r data correlation, fig.cap="Korrelationskoeffizienten nach Pearson", fig.height=8, fig.width=12, message=FALSE, warning=FALSE, include = TRUE}
 data_sample %>% 
@@ -182,20 +211,21 @@ data_sample %>%
          label = TRUE, label_size = 2, label_alpha = TRUE) 
 ```
 
-Baum-basierte Methoden funktionieren auch bei starker Multikollinearität gut, da 
+Baumbasierte Methoden funktionieren auch bei starker Multikollinearität gut, da 
 sukzessive einzelne Variablen für die Splits herangezogen werden. Liefert eine 
 Variable keinen oder kaum Informationsgewinn, weil sie stark mit einer vorher 
 bereits zum Split genutzten Variable korreliert, wird sie nicht verwendet. Daher
-müssen wir uns hier keine allzu großen Sorgen um die Korrelationen machen.
-Allerdings sollten starke Kollinearitäten später bei der Interpretation der
-Entscheidungskriterien berücksichtigt werden. Es ist möglich, dass nicht die
-eigentlich relevante Variable für einen Split herangezogen wird, sondern eine, 
-die stark mit ihr korreliert ist.
+müssen stark korrelierte Prädiktoren nicht unbedingt von der Analyse
+ausgeschlossen werden. Allerdings sollten starke Kollinearitäten später bei der
+Interpretation der Entscheidungskriterien berücksichtigt werden. Es ist möglich,
+dass nicht die eigentlich relevante Variable für einen Split herangezogen wird,
+sondern eine, die stark mit ihr korreliert ist.
 
 Bei Variablen mit vollständigen linearen Zusammenhang 
-(Korrelationskoeffizient +/- 1) ist eine Variablenselektion dennoch angeraten:
+(Korrelationskoeffizient +/- 1) ist eine Variablenselektion aber auf jeden Fall
+angeraten:
 
-Hour dient nur zur Information und soll nicht als Einflussvariable verwendet
+*Hour* dient nur zur Information und soll nicht als Einflussvariable verwendet
 werden. Daher kann sie hier vernachlässigt werden.
 
 ```{r Bilirubin}
@@ -240,7 +270,7 @@ ohne Sepsis auf.
 
 Da schwerwiegende Erkrankungen durchaus extreme medizinische Werte hervorbringen 
 können, ist es schwierig festzulegen, wann Ausreißer Messfehler sind und daher 
-aus der Betrachtung herausgenommen werden sollten. Zudem sind Baum-basierte 
+aus der Betrachtung herausgenommen werden sollten. Zudem sind baumbasierte 
 Methoden robust gegenüber Ausreißern. Deshalb werden hier keine weiteren 
 Beobachtungen entfernt.
 
@@ -261,7 +291,7 @@ p
 rm(melt_sample, p)
 ```
 
-Da Temperatur und Blutwerte häufig nur einmal täglich bestimmt werden, wurden 
+Da Temperatur und Blutwerte häufig nur einmal täglich bestimmt wurden, werden 
 diese bei fehlenden Werten bis zu 24 Stunden fortgeschrieben (LOCF).
 
 ```{r LOCF imputation, warnings = FALSE}
@@ -286,20 +316,28 @@ data_sample_imputed <- data_sample %>%
 # Methoden und Ergebnisse
 
 Nach den grundlegenden Vorbereitungen aus dem vorigen Kapitel ergeben sich zwei 
-wesentliche Herausforderungen aus der Datenstruktur:
+wesentliche Herausforderungen aus der Datenstruktur.
 
-Zum einen fehlen in vielen Variablen sehr viele Werte. Es muss also ein Weg
-gefunden werden, dennoch gute Ergebnisse zu erhalten.
+Zum einen ist die Anzahl fehlender Werte in vielen Variablen sehr hoch. Während 
+der CART-Algorithmus zum Anpassen von Entscheidungsbäumen solche Situationen
+intern durch Surrogate Splits handhabt, müssen für viele andere Varianten von 
+Entscheidungsbäumen und Ensemblemethoden entweder fehlende Daten imputiert
+oder der Datensatz auf vollständige Beobachtungen eingeschränkt werden. Dies gilt
+zum Beispiel für die Anwendung von Random Forests. Gradient Boosting Machines
+wiederum behandeln fehlende Werte intern, indem sie diese als eigene Klasse
+beziehungsweise Wert definieren.
 
-Zum anderen müssen die longitudinalen Daten für die Anwendung Baum-basierter 
+[missing value Mechanismen]
+
+Zum anderen müssen die longitudinalen Daten für die Anwendung baumbasierter 
 Verfahren zu je einer Beobachtung pro Patient zusammengefasst werden. Dazu werden 
 drei Ansätze miteinander verglichen:
 
-**1. Baseline-Datensatz:** Es werden alle Datensätze mit Hour = 1, d. h. die zweite
-vorliegende Messung, verwendet. Die Wahl fällt deshalb nicht auf die erste Messung,
-weil in dieser besonders viele Werte fehlen. Es ist zu beachten, dass der Zeitpunkt
-der ersten Messung nicht notwendigerweise mit der Aufnahme auf die Intensivstation
-zusammenfällt.
+**1. Baseline-Datensatz:** Es werden alle Datensätze mit Hour = 1, d. h. die
+zweite vorliegende Messung, verwendet. Die Wahl fällt deshalb nicht auf die erste
+Messung, weil in dieser besonders viele Werte fehlen. Es ist zu beachten, dass der
+Zeitpunkt der ersten Messung nicht notwendigerweise mit der Aufnahme auf die
+Intensivstation zusammenfällt.
 \newline Dieses Vorgehen entspricht einer einmaligen Beurteilung der Patienten zu 
 Beginn der Intensivbehandlung bzw. zum erstmöglichen Zeitpunkt.
 
@@ -444,13 +482,13 @@ Es wird eine 5-fache Kreuzvalidierung und aufgrund der sehr unausgewogenen Daten
 
 Bei der Wahl der Evaluierungsmetrik ist zu berücksichtigen, dass sowohl
 Sensitivität als auch Spezifität eine hohe Relevanz für die Fragestellung haben. 
-Je höher die Sensitivität, desto mehr Patienten können frühzeitig behandelt werden,
-je niedriger die Spezifität, desto mehr Patienten werden möglicherweise aufgrund
-der Klassifizierung unnötigen Therapien unterzogen. Eine häufige Wahl ist in
-solchen Situationen die *Area under the Curve (ROC)*. Für stark unausgewogene Daten
-sind aber Metriken, die auf Precision und Recall beruhen, von Vorteil. Daher bieten
-sich hier die *Area under the Precision Recall Curve (AUC)* und die F1-Metrik
-(harmonisches Mittel aus Precision und Recall) an. 
+Je höher die Sensitivität, desto mehr Patienten können frühzeitig behandelt
+werden, je niedriger die Spezifität, desto mehr Patienten werden möglicherweise
+aufgrund der Klassifizierung unnötigen Therapien unterzogen. Eine häufige Wahl 
+ist in solchen Situationen die *Area under the Curve (ROC)*. Für stark
+unausgewogene Daten sind aber Metriken, die auf Precision und Recall beruhen, von
+Vorteil. Daher bieten sich hier die *Area under the Precision Recall Curve (AUC)* 
+und die F1-Metrik (harmonisches Mittel aus Precision und Recall) an. 
 
 Wir werden später beim Modellvergleich sehen, dass die AUC-Metrik im Vergleich zur
 F1-Metrik falsch positive Klassifizierungen stärker bestraft und dafür eine
@@ -459,8 +497,8 @@ die F1-Metrik gefallen. Sie berücksichtigt gleichermaßen den Anteil der richti
 positiven an den Events als auch der Anteil der richtig positiven an den insgesamt
 positiv klassifizierten Beobachtungen, kann aber leicht so verallgemeinert werden,
 dass entweder der Recall (= Sensitivität) oder die Präzision stärker gewichtet
-werden. Eine flexible Anpassung beispielsweise im Rahmen einer klinischer Anwendung
-ist also gegeben.
+werden. Eine flexible Anpassung beispielsweise im Rahmen einer klinischer
+Anwendung ist also gegeben.
 
 ```{r caret models control}
 set.seed(12345)
@@ -1051,7 +1089,7 @@ subset(data.frame(sessioninfo::package_info()), attached == TRUE,
 
 ```{r vars description, include = TRUE}
 knitr::kable(var_info, booktabs = T,
-             caption = "Datensatzbeschreibung (Variablen)") %>%
+             caption = "\\label{vars_table}Datensatzbeschreibung (Variablen)") %>%
   kable_styling(latex_options = c("striped", "scale_down"),
                 position = "center")
 ```
