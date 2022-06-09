@@ -91,7 +91,7 @@ Sepsis entwickeln" lassen sich mittels einzelner Entscheidungsbäume ableiten? \
 2. Welches Modell aus dem Bereich der baumbasierten Ensemblemethoden ist am 
 besten geeignet, um aus demografischen Daten, Blutwerten und Vitalparametern 
 eines Intensivpatienten vorherzusagen, ob dieser an einer Sepsis erkranken wird
- (bzw. bereits unerkannt erkrankt ist)?
+(bzw. bereits unerkannt erkrankt ist)?
 
 Die verwendeten Daten stammen aus dem unter *Open Database License (ODbL)* 
 verfügbaren Kaggle-Datensatz *Dataset.csv* [@KaggleData; @Physionet]. 
@@ -129,6 +129,16 @@ umfassen neben einigen demografischen und administrativen Baseline-Angaben zum
 Fall acht Vitalparameter (Variablen 3-10) und 26 Blutwerte (Variablen 11-36), 
 siehe Tabelle \ref{vars_table} im Anhang. 
 Die Erfassung erfolgte stündlich; kontinuierlich gemessene Werte wurden gemittelt.
+
+Zu beachten ist, dass die Daten bereits sechs Stunden vor dem Ausbruch der Sepsis
+als positiv gelabelt wurden, sodass eine korrekte Klassifizierung als 
+Sepsispatient einem zeitlichen Vorsprung von drei bis sechs Stunden entspricht. 
+Dabei ergibt sich ein Zeitfenster kleiner sechs Stunden, wenn der Ausbruch 
+innerhalb von sechs Stunden nach Aufnahme auf die Intensivstation erfolgt, wobei 
+Ausbrüche innerhalb weniger als vier Stunden aus den Daten entfernt wurden. Als 
+Ausbruch gilt das Auftreten eines Organversagens gemäß Sequential Organ Failure
+Assessment (SOFA) oder ein klinischer Verdacht, der sich in einer intravenösen
+Antibiotikagabe und dem Anlagen von Blutkulturen widerspiegelt.
 
 ```{r data structure}
 summary(data_sample)
@@ -318,16 +328,39 @@ data_sample_imputed <- data_sample %>%
 Nach den grundlegenden Vorbereitungen aus dem vorigen Kapitel ergeben sich zwei 
 wesentliche Herausforderungen aus der Datenstruktur.
 
-Zum einen ist die Anzahl fehlender Werte in vielen Variablen sehr hoch. Während 
-der CART-Algorithmus zum Anpassen von Entscheidungsbäumen solche Situationen
-intern durch Surrogate Splits handhabt, müssen für viele andere Varianten von 
-Entscheidungsbäumen und Ensemblemethoden entweder fehlende Daten imputiert
-oder der Datensatz auf vollständige Beobachtungen eingeschränkt werden. Dies gilt
-zum Beispiel für die Anwendung von Random Forests. Gradient Boosting Machines
-wiederum behandeln fehlende Werte intern, indem sie diese als eigene Klasse
-beziehungsweise Wert definieren.
+Zum einen ist die Anzahl fehlender Werte in vielen Variablen sehr hoch. Dies
+gilt auch nach der bereits aufgrund von Fachlichen Überlegungen erfolgten 
+LOCF-Imputation einiger Prädiktoren weiterhin. Während der CART-Algorithmus zum
+Anpassen von Entscheidungsbäumen solche Situationen intern durch Surrogate Splits
+handhabt, müssen für viele andere Varianten von Entscheidungsbäumen und
+Ensemblemethoden entweder fehlende Daten imputiert oder der Datensatz auf
+vollständige Beobachtungen eingeschränkt werden.Dies gilt zum Beispiel für die
+Anwendung von Random Forests. Gradient Boosting Machines wiederum behandeln 
+fehlende Werte intern, indem sie diese als eigene Klasse beziehungsweise Wert
+definieren.
 
-[missing value Mechanismen]
+Der geeignete Umgang mit fehlenden Daten hängt stark davon ab, welcher Mechanismus
+dem Fehlen zugrunde liegt. Imputationsmethoden setzen grundsätzlich mindestens
+Missing At Random (MAR) voraus. Es ist anzunehmen, dass im vorliegenden Datensatz
+tatsächlich einige Werte nur deshalb fehlen, weil bestimmte Messungen unabhängig
+vom Gesundheitszustand des Patienten nur zu bestimmten Zeiten beziehungsweise in
+größeren Abständen vorgenommen werden. Es ist aber auch durchaus wahrscheinlich,
+dass bestimmte Messungen (insbesondere die Bestimmung spezieller Blutwerte) nur 
+bei Vorliegen konkreter Verdachtsmomente erfolgen und somit ein Zusammenhang des
+Fehlens mit dem tatsächlichen Wert (und eventuell auch mit der Wahrscheinlichkeit
+einer Sepsis) besteht. Ursachenforschung gemeinsam mit den ärztlichen und
+pflegerischen Fachkräften wäre an dieser Stelle angeraten, ist im Rahmen dieser
+Arbeit aber nicht möglich, da die Analyse retrospektiv und ohne Kooperation mit 
+den Daten generierenden Krankenhäusern erfolgt. Im Folgenden werden, sofern für 
+die jeweiligen Modelle erforderlich, zwei Vorgehensweisen miteinander verglichen
+- eine Analyse vollständiger Fälle (nach Einschränkung auf relativ gut gefüllte
+Variablen) und eine Imputation mit der im R-Paket *randomForest* implementierten 
+Methode nach Breiman, die fehlende Werte iterativ anhand von Proximity-Matrizen
+in Random Forests konstruiert [@Breiman]. Auf multiple Imputation wird hier 
+verzichtet, um den gezeilt verkleinerten Datensatz nicht wieder erheblich zu 
+vergrößern. Dennoch ist festzuhalten, dass multiple Imputation eine mögliche
+Alternative darstellt, die hinsichtlich einer eventuellen Verzerrung Vorteile
+aufweist.
 
 Zum anderen müssen die longitudinalen Daten für die Anwendung baumbasierter 
 Verfahren zu je einer Beobachtung pro Patient zusammengefasst werden. Dazu werden 
@@ -349,10 +382,10 @@ der Entwicklung einer Sepsis am nächsten war.
 Intensivpatienten anhand ihrer jeweils aktuellen klinischen Parameter.
 
 **3. Regressionsdatensatz:** Für jeden Patienten wird mittels linearer Regression 
-die Entwicklung jeder Prädiktorvariable modelliert und der
-patientenindividuelle Slope als Prädiktor verwendet. Dabei wird für 
-Nicht-Sepsispatienten der gesamte Beobachtungszeitraum einbezogen und für
-Sepsispatienten der Zeitraum bis zum ersten positiven Outcome.
+die Entwicklung jeder Prädiktorvariable modelliert und der patientenindividuelle
+Slope als Prädiktor verwendet. Dabei wird für Nicht-Sepsispatienten der gesamte
+Beobachtungszeitraum einbezogen und für Sepsispatienten der Zeitraum bis zum 
+ersten positiven Outcome.
 \newline Dies entspricht einer regelmäßigen Klassifikation der Patienten anhand 
 aller ihrer bis dahin vorliegenden Parameter.
 
@@ -472,6 +505,7 @@ test3  <- dataset3[-train_index3,]
 In den nächsten Abschnitten werden Entscheidungsbäume und Ensembles für jeweils
 einen Datensatz angepasst. Das Tuning der Parameter und der Modellvergleich 
 erfolgen mittels des R-Pakets *caret*.
+
 Es wird eine 5-fache Kreuzvalidierung und aufgrund der sehr unausgewogenen Daten
 (Eventrate `r prettyNum(
   round(
@@ -494,10 +528,10 @@ Wir werden später beim Modellvergleich sehen, dass die AUC-Metrik im Vergleich 
 F1-Metrik falsch positive Klassifizierungen stärker bestraft und dafür eine
 niedrige Detektionsrate in Kauf nimmt. Für diese Arbeit ist die Entscheidung für
 die F1-Metrik gefallen. Sie berücksichtigt gleichermaßen den Anteil der richtig
-positiven an den Events als auch der Anteil der richtig positiven an den insgesamt
+positiven an den Events als auch den Anteil der richtig positiven an den insgesamt
 positiv klassifizierten Beobachtungen, kann aber leicht so verallgemeinert werden,
 dass entweder der Recall (= Sensitivität) oder die Präzision stärker gewichtet
-werden. Eine flexible Anpassung beispielsweise im Rahmen einer klinischer
+werden. Eine flexible Anpassung beispielsweise im Rahmen einer späteren klinischen
 Anwendung ist also gegeben.
 
 ```{r caret models control}
@@ -509,26 +543,13 @@ ctrl <- trainControl(method = "cv", number = 5,
                      sampling = "up")
 ```
 
-```{r tune grid rf}
-rf_grid <- expand.grid(
-  .mtry = seq(2,35,3),
-  .splitrule = "gini",
-  .min.node.size = seq(5, 20, 5)
-)
-```
-
-```{r tune grid gbm}
-gbm_grid <-  expand.grid(interaction.depth = seq(1, 9, 2),
-                        n.trees = c(100, 500, 1000),
-                        shrinkage = c(0.001, 0.01, 0.05, 0.1),
-                        n.minobsinnode = seq(5, 20, 5))
-```
-
 ## Der Baseline-Ansatz
 
 Es wird ein Entscheidungsbaum mit dem CART-Algorithmus (R-Paket *rpart*) erstellt.
 Da CART mit fehlenden Werten mittels Surrogate-Splits automatisch umgehen kann,
-ist kein Preprocessing notwendig.
+ist kein Preprocessing notwendig. Das Tuning erfolgt mittels der
+*caret*-Standardeinstellungen, d. h. es wird ein Tunegrid der Länge drei für den
+Complexity-Parameter (*cp*) basierend auf der *rpart*-Implementierung verwendet.
 
 ```{r cart model ds1}
 set.seed(12345)
@@ -540,18 +561,19 @@ cart_ds1 <- train(x = train1[,4:41],
                   trControl = ctrl)
 ```
 
-Das beste Modell ist: `r knitr::kable(cart_ds1$bestTune)`
+Als bestes Modell ergibt sich: `r knitr::kable(cart_ds1$bestTune)`
 
 ```{r cart model results ds1, include = TRUE, fig.cap="Entscheidungsbaum Baseline-Datensatz"}
 rpart.plot(cart_ds1$finalModel, type = 5)
 ```
 
-Dass die Zeitspanne zwischen Krankenhausaufnahme und Verlegung auf die ITS eine
-Rolle spielt, erscheint einleuchtend. Da hier jedoch gar keine weiteren Variablen
-herangezogen werden, wird noch ein Baum ohne *HospAdmTime* angepasst. Dieser wird
-mit Defaultparametern allerdings so tief, dass er nachträglich geprunt werden
-muss, um visuelle Erkenntnisse aus der Baumstruktur zu ermöglichen. Der geeignete 
-Complexity-Parameter wurde durch manuelles Ausprobieren bestimmt.
+Dass die Zeitspanne zwischen Krankenhausaufnahme und Verlegung auf die ITS
+(*HospAdmTime*) eine Rolle spielt, erscheint einleuchtend. Da hier jedoch gar keine
+weiteren Variablen herangezogen werden, wird noch ein Baum ohne *HospAdmTime*
+angepasst. Dieser wird mit Defaultparametern allerdings so tief, dass er
+nachträglich geprunt werden muss, um visuelle Erkenntnisse aus der Baumstruktur 
+zu ermöglichen. Der geeignete Complexity-Parameter wurde durch manuelles
+Ausprobieren bestimmt und auf CP = 0,02 gesetzt.
 
 ```{r cart model adjusted ds1}
 set.seed(12345)
@@ -576,8 +598,17 @@ confusionMatrix(data = pred_cart_ds1, reference = test1$Sepsis,
 ```
 
 Des Weiteren werden Random Forests trainiert. Da diese Methode nicht mit fehlenden
-Werten funktioniert, wird zum einen die im R-Paket *randomForest* implementierte
-Imputation nach Breiman angewandt [@Breiman]:
+Werten funktioniert, wird zunächst die im R-Paket *randomForest* implementierte
+Imputation nach Breiman angewandt [@Breiman]. Das Tuning erfolgt über folgendes
+Tunegrid:
+
+```{r tune grid rf, include = TRUE, echo = TRUE}
+rf_grid <- expand.grid(
+  .mtry = seq(2,35,3),
+  .splitrule = "gini",
+  .min.node.size = seq(5, 20, 5)
+)
+```
 
 ```{r rf model ds1}
 set.seed(12345)
@@ -598,7 +629,7 @@ rf_ds1 <- train(x = ds1_imputed[,4:41],
                 trControl = ctrl)
 ```
 
-Das beste Modell ist: `r knitr::kable(rf_ds1$bestTune)`
+Als bestes Modell ergibt sich: `r knitr::kable(rf_ds1$bestTune)`
 
 ```{r rf model test ds1}
 # Testdaten werden nicht automatisch imputiert
@@ -607,11 +638,12 @@ confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis,
                 positive = "positiv")
 ```
 
-Als weiterer Ansatz wird der Datensatz auf diejenigen Prädiktoren mit weniger als
-30 % fehlenden Werten eingeschränkt und anschließend  nur die vollständigen
-Beobachtungen einbezogen:
+Als weiterer Ansatz wird nun der Datensatz auf diejenigen Prädiktoren mit weniger
+als 30 % fehlenden Werten eingeschränkt und anschließend  nur die vollständigen
+Beobachtungen einbezogen. Dabei ist zu beachten, dass das Tunegrid für den
+Parameter *mtry* (d. h. die Anzahl der pro Split einbezogenen möglichen Splitvariablen) auf maximal (Anzahl der Variablen - 1) beschränkt wird.
 
-```{r non-missings ds1, include = TRUE, , fig.cap="Fehlende Werte im Baseline-Datensatz"}
+```{r non-missings ds1, include = TRUE, fig.cap="Fehlende Werte im Baseline-Datensatz"}
 vis_miss(dataset1)
 ```
 
@@ -658,7 +690,15 @@ Während Random Forests Bäume durch Bagging kombinieren und damit insbesondere
 die Korrelation zwischen den einzelnen Bäumen verringern, zielen auf Boosting
 zurückgreifende Ensemble-Verfahren darauf, sukzessive die Vorhersagen für falsch
 klassifizierte Beobachtungen zu verbessern. Hier wird nun zum Vergleich ein 
-Stochastic Gradient Boosting mit dem R-Palet *gbm* durchgeführt:
+Stochastic Gradient Boosting mit dem R-Paket *gbm* durchgeführt. Dafür wird das 
+Tunegrid wie folgt definiert:
+
+```{r tune grid gbm}
+gbm_grid <-  expand.grid(interaction.depth = seq(1, 9, 2),
+                        n.trees = c(100, 500, 1000),
+                        shrinkage = c(0.001, 0.01, 0.05, 0.1),
+                        n.minobsinnode = seq(5, 20, 5))
+```
 
 ```{r gbm model ds1}
 set.seed(12345)
@@ -673,7 +713,8 @@ gbm_ds1 <- train(x = train1[,4:41],
                  verbose = FALSE)
 ```
 
-Das beste Modell ist: `r knitr::kable(gbm_ds1$bestTune)`
+Dsa beste Modell ergibt sich mit folgenden Parametern:
+`r knitr::kable(gbm_ds1$bestTune)`
 
 ```{r gbm model test ds1}
 pred_gbm_ds1 <- predict(gbm_ds1, test1)
@@ -683,8 +724,9 @@ confusionMatrix(data = pred_gbm_ds1, reference = test1$Sepsis,
 
 ## Der Onset-Ansatz
 
-Auch für den Onset-Datensatz werden zunächst Entscheidungsbäume mit dem
-CART-Algorithmus angepasst und der Einfluss der Prädiktoren visualisiert:
+Auf dem zweiten Datensatz werden die gleichen Arten von Modellen trainiert. Auch 
+die Tunegrids bleiben mit Ausnahme der nötigen Anpassung von *mtry* bei Verringerung
+der Variablen gleich. 
 
 ```{r cart model ds2}
 set.seed(12345)
@@ -697,14 +739,15 @@ cart_ds2 <- train(x = train2[,4:41],
 
 ```
 
-Das beste Modell ist: `r knitr::kable(cart_ds2$bestTune)`
+Aus dem CART-Algorithmus ergibt sich das beste Modell mit: 
+`r knitr::kable(cart_ds2$bestTune)`
 
 ```{r cart model results ds2, include = TRUE, fig.cap="Entscheidungsbaum Onset-Datensatz"}
 rpart.plot(cart_ds2$finalModel, type = 5)
 ```
 
-Ähnlich wie beim Baseline-Ansatz wird hier nur eine Prädiktorvariable verwendet - in diesem Fall die Länge des Intensivaufenthalts. Analog zum Vorgehen im vorigen
-Abschnitt wird auch hier diese Variable ausgeschlossen:
+Ähnlich wie beim Baseline-Ansatz wird hier nur eine Prädiktorvariable verwendet - in diesem Fall die Länge des Intensivaufenthalts (*ICULOS*). Analog zum Vorgehen im
+vorigen Abschnitt wird nun auch hier diese Variable ausgeschlossen:
 
 ```{r cart model adjusted ds2}
 set.seed(12345)
@@ -727,7 +770,7 @@ confusionMatrix(data = pred_cart_ds2, reference = test2$Sepsis,
                 positive = "positiv")
 ```
 
-Es folgen die Random Forests - zunächst mit Imputation nach Breiman:
+Es folgen die Random Forests - zunächst mit Imputation nach Breiman.
 
 ```{r rf model ds2}
 set.seed(12345)
@@ -803,7 +846,7 @@ confusionMatrix(data = pred_rf_nm_ds2, reference = test2_2$Sepsis,
                 positive = "positiv")
 ```
 
-Und schließlich wird ein Gradient Boosting durchgeführt:
+Und schließlich für die Gradient Boosting Machine:
 
 ```{r gbm model ds2}
 set.seed(12345)
@@ -818,7 +861,7 @@ gbm_ds2 <- train(x = train2[,4:41],
                  verbose = FALSE)
 ```
 
-Das beste Modell ist: `r knitr::kable(gbm_ds2$bestTune)`
+ `r knitr::kable(gbm_ds2$bestTune)`
 
 ```{r gbm model test ds2}
 pred_gbm_ds2 <- predict(gbm_ds2, test2)
@@ -828,9 +871,8 @@ confusionMatrix(data = pred_gbm_ds2, reference = test2$Sepsis,
 
 ## Der Regressionsansatz
 
-Auch für den Regressionsdatensatz werden die gleichen Verfahren benutzt.
-
-Mit dem CART-Algorithmus ergibt sich:
+Auch für den Regressionsdatensatz werden die gleichen Verfahren und Tuningparameter
+benutzt. Mit dem CART-Algorithmus ergibt sich:
 
 ```{r cart model ds3}
 set.seed(12345)
@@ -842,13 +884,13 @@ cart_ds3 <- train(x = train3[,3:40],
                   trControl = ctrl)
 ```
 
-Das beste Modell ist: `r knitr::kable(cart_ds3$bestTune)`
+ `r knitr::kable(cart_ds3$bestTune)`
 
 ```{r cart model results ds3, include = TRUE, fig.cap="Entscheidungsbaum Regressionsdatensatz"}
 rpart.plot(cart_ds3$finalModel, type = 5)
 ```
 
-Auch hier wird im finalen Modell nur die Dauer des Intensivaufenthalts als
+Wiederum im finalen Modell nur die Dauer des Intensivaufenthalts als
 Splitvariable verwendet und daher ein weiterer Baum ohne diesen Prädiktor
 angepasst:
 
@@ -872,7 +914,7 @@ confusionMatrix(data = pred_cart_ds3, reference = test3$Sepsis,
                 positive = "positiv")
 ```
 
-Random Forest mit Imputation nach Breiman:
+Random Forests mit Imputation führen zu:
 
 ```{r rf model ds3}
 set.seed(12345)
@@ -892,7 +934,7 @@ rf_ds3 <- train(x = ds3_imputed[,3:40],
                 trControl = ctrl)
 ```
 
-Das beste Modell ist: `r knitr::kable(rf_ds3$bestTune)`
+`r knitr::kable(rf_ds3$bestTune)`
 
 ```{r rf model test ds3}
 # Testdaten werden nicht automatisch imputiert
@@ -901,8 +943,8 @@ confusionMatrix(data = pred_rf_ds3, reference = test3$Sepsis,
                 positive = "positiv")
 ```
 
-Random Forest nach Einschränkung der Prädiktoren und auf vollständige
-Beobachtungen:
+Random Forests nach Einschränkung der Prädiktoren und auf vollständige
+Beobachtungen ergeben:
 
 ```{r non-missings ds3, include = TRUE, fig.cap="fehlende Werte im Regressionsdatensatz"}
 vis_miss(dataset3)
@@ -935,7 +977,7 @@ rf_nm_ds3 <- train(Sepsis ~ . - Patient_ID - Sepsis,
                   trControl = ctrl)
 ```
 
-Das beste Modell ist: `r knitr::kable(rf_nm_ds3$bestTune)`
+`r knitr::kable(rf_nm_ds3$bestTune)`
 
 ```{r rf non-missing test ds3}
 # Vorhersagen nur für vollständige Beobachtungen
@@ -947,7 +989,7 @@ confusionMatrix(data = pred_rf_nm_ds3, reference = test3_2$Sepsis,
                 positive = "positiv")
 ```
 
-Gradient Boosting:
+Und Gradient Boosting führt hier zu:
 
 ```{r gbm model ds3}
 set.seed(12345)
@@ -962,7 +1004,7 @@ gbm_ds3 <- train(x = train3[,3:40],
                  verbose = FALSE)
 ```
 
-Das beste Modell ist: `r knitr::kable(gbm_ds3$bestTune)`
+`r knitr::kable(gbm_ds3$bestTune)`
 
 ```{r gbm model test ds3}
 pred_gbm_ds3 <- predict(gbm_ds3, test3)
@@ -988,6 +1030,8 @@ results <- resamples(list(ds1_cart = cart_ds1,
                           ds2_gbm = gbm_ds2, 
                           ds3_gbm = gbm_ds3))
 ```
+
+[Wenn Recall 0, F-Metrik nicht definiert -> FSD = NA]
 
 ```{r resamples F statistics, include = TRUE}
 knitr::kable(summary(results)$statistics$F, 
