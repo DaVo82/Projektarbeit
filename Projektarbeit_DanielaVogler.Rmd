@@ -62,6 +62,8 @@ library(randomForest)
 library(ranger)
 library(gbm)
 library(naniar)
+library(ConfusionTableR)
+library(png)
 library(randomForestExplainer)
 ```
 
@@ -1031,7 +1033,14 @@ results <- resamples(list(ds1_cart = cart_ds1,
                           ds3_gbm = gbm_ds3))
 ```
 
-[Wenn Recall 0, F-Metrik nicht definiert -> FSD = NA]
+Die folgenden Übersichten vergleichen anhand der Resampling-Statistiken jeweils
+den CART-Entscheidungsbaum, den Random Forest nach Imputation, den Random Forest
+auf vollständigen Beobachtungen und die Gradient Boosting Machine für jeden 
+der drei Datensätze (also Baseline, Onset und Regression). Die weiteren 
+angepassten Entscheidungsbäume, bei denen jeweils die zunächst verwendete 
+Splitvariable aus der Betrachtung entfernt wurden, werden nicht mit einbezogen, 
+da sie weniger der verbesserung der Vorhersagequalität als vielmehr der Beurteilung
+relevanter Kriterien dienen sollen.
 
 ```{r resamples F statistics, include = TRUE}
 knitr::kable(summary(results)$statistics$F, 
@@ -1070,6 +1079,263 @@ knitr::kable(summary(results)$statistics$Recall,
 ```{r resamples plot, include = TRUE, fig.cap="Modellvergleich"}
 dotplot(results)
 ```
+
+Es stellt sich heraus, dass gemessen an der F1-Metrik die Gradient Boosting 
+Machine auf dem Regressinsdatensatz das erfolgreichste Modell ist, gefolgt von 
+dem CART-Modell und dem Random Forest nach Imputation auf dem gleichen Datensatz.
+Die Modelle für den Baseline-Datensatz erreichen die schlechtesten Ergebnisse. 
+Dies ist wenig überraschend, wenn man bedenkt, dass zur Baseline der größte
+zeitliche Abstand zum Event besteht. Auch der Erfolg des Regressionsdatensatzes
+leuchtet ein, da hier die meisten Informationen im Sinne des zeitlichen Verlaufs 
+der Werte eingehen. Unerwartet kommt hingegen das bessere Abschneiden des einzelnen
+Entscheidungsbaumes gegenüber den Random Forests. Allerdings ist der Unterschied 
+zwischen dem Entscheidungsbaum und dem Random Forest nach Imputation auf dem 
+Regressionsdatensatz sehr gering (Differenz der mittleren F1-Metrik 
+`r prettyNum(round(summary(results)$statistics$F[3,4] -
+                   summary(results)$statistics$F[9,4], 
+                   4),
+            decimal.mark = ",")`). 
+Außerdem kommt hier sicherlich die Stärke des CART-Algorithmus im Umgang mit
+fehlenden Werten durch die Verwendung von Surrogate Splits zum Tragen. Insbesondere
+bei Vorliegen eines MNAR-Mechanismus, der hier wie weiter oben erläutert nicht
+ausgeschlossen werden kann, sind vergleichsweise schlechte Ergebnisse aufgrund 
+einer Verzerrung nach Imputation oder bei einer Complete Case Analysis zu erwarten.
+Zu beachten ist außerdem, dass für die Random Forests des Baseline-Datensatzes 
+kein Konfidenzintervall der F1-Metrik angegeben werden kann, da die Metrik auf vier 
+der fünf Folds nicht berechnet werden konnte, weil Precision und Recall jeweils Null
+sind.
+
+Gemessen an der AUC-Metrik (bezogen auf die Precision Recall-Kurve) ergibt sich 
+ein ähnliches Bild. Der deutlichste Unterschied besteht im Ranking des CART-Modells
+des Regressionsdatensatzes. Dieses fällt von Platz 2 auf Platz 8. Hier wirkt sich 
+aus, dass die Präzision im Vergleich zu den anderen Modellen eher schlecht, der 
+Recall aber sehr gut ist (mit 
+`r prettyNum(round(summary(results)$statistics$Recall[3,4], 3), decimal.mark = ",")`
+der zweitbeste Wert).
+
+Für eine klinische Anwendung empfiehlt sich demzufolge von den untersuchten Modellen
+vor allem die Gradient Boosting Machine in Verbindung mit einem Regressionsmodell.
+
+Wird ein weniger rechenintensives oder besser interpretierbares Verfahren benötigt,
+so stellt der CART-Baum auf dem Regressionsdatensatz insbesondere dann eine gute
+Alternative dar, wenn der Präzision im Vergleich zum Recall eher wenig Bedeutung
+beigemessen wird. Dies ist zum Beispiel denkbar, wenn durch den Algorithmus eine 
+Vorauswahl an gefährdeten Patienten getroffen werden soll, die dann noch einmal
+gesondert ärztlich beurteilt wird.
+
+Falls es nicht möglich ist, Messwerte aus einem längeren Zeitraum in die Analyse
+einzubeziehen, so ist der auf vollständige Daten eingeschränkte Random Forest auf
+dem Onset-Datensatz das Modell der Wahl, dicht gefolgt von der Gradient Boosting
+Machine und dem Random Forest mit Imputation auf demselben Datensatz. Je nach 
+Vollständigkeit der Daten können sich hier leicht Verschiebungen ergeben, sodass
+für Krankenhäuser mit unterschiedlicher Datengrundlage eventuell unterschiedliche 
+Modelle am besten geeignet sind.
+
+Von einer Verwendung des Baseline-Datensatzes ist grundsätzlich abzuraten, da 
+keines der evaluierten Modelle eine befriedigende Performance zeigt (bestes Modell
+GBM mit F1 = 
+`r prettyNum(round(summary(results)$statistics$F[10,4], 3), decimal.mark = ",")`,
+Precision = 
+`r prettyNum(round(summary(results)$statistics$Precision[10,4], 3), 
+            decimal.mark = ",")` 
+und Recall = 
+`r prettyNum(round(summary(results)$statistics$Recall[10,4], 3), 
+             decimal.mark = ",")`).
+
+Idealerweise würde man die Modelle nun an einem komplett unabhängigen Testdatensatz
+testen (d. h. Daten aus einem anderen Krankenhaus und möglichst auch anderem
+Quellsystem) ausprobieren. Wir greifen hier auf unsere eingangs abgespalteten 
+Testdatensätze mit 25 % der Beobachtungen des ursprünglichen Samples zurück - in 
+dem Bewusstsein, dass diese aus den gleichen Datenquellen stammen wie unsere
+Trainingsdaten. Wir erhalten folgende Konfusionsmatrizen:
+
+```{r model test confusion matrices}
+pred_cart_ds1 <- predict(cart_ds1, test1)
+
+# speichern als png nötig für Skalierung der  Statistikbox
+png("figures/cf_plot1.png")   
+binary_visualiseR(train_labels = pred_cart_ds1,
+                               truth_labels = test1$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "CART Baseline",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+# Testdaten werden nicht automatisch imputiert (außerhalb Preprocessing)
+pred_rf_ds1 <- predict(rf_ds1, rfImpute(Sepsis ~., test1)[-1])
+
+png("figures/cf_plot2.png")
+binary_visualiseR(train_labels = pred_rf_ds1,
+                               truth_labels = test1$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "Random Forest (imp.) Baseline",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+# Vorhersagen nur für vollständige Beobachtungen
+test1_2 <- test1[, colnames(train1_2)] %>%
+  filter(complete.cases(.))
+
+pred_rf_nm_ds1 <- predict(rf_nm_ds1, test1_2)
+
+png("figures/cf_plot3.png")
+binary_visualiseR(train_labels = pred_rf_nm_ds1,
+                               truth_labels = test1_2$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "Random Forest (non-mis.) Baseline",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+pred_gbm_ds1 <- predict(gbm_ds1, test1)
+
+png("figures/cf_plot4.png")
+binary_visualiseR(train_labels = pred_gbm_ds1,
+                               truth_labels = test1$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "GBM Baseline",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+pred_cart_ds2 <- predict(cart_ds2, test2)
+
+png("figures/cf_plot5.png")
+binary_visualiseR(train_labels = pred_cart_ds2,
+                               truth_labels = test2$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "CART Onset",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+# Testdaten werden nicht automatisch imputiert (außerhalb Preprocessing)
+pred_rf_ds2 <- predict(rf_ds2, rfImpute(Sepsis ~., test2)[-1])
+
+png("figures/cf_plot6.png")
+binary_visualiseR(train_labels = pred_rf_ds2,
+                               truth_labels = test2$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "Random Forest (imp.) Onset",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+# Vorhersagen nur für vollständige Beobachtungen
+test2_2 <- test2[, colnames(train2_2)] %>%
+  filter(complete.cases(.))
+
+pred_rf_nm_ds2 <- predict(rf_nm_ds2, test2_2)
+
+png("figures/cf_plot7.png")
+binary_visualiseR(train_labels = pred_rf_nm_ds2,
+                               truth_labels = test2_2$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "Random Forest (non-mis.) Onset",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+pred_gbm_ds2 <- predict(gbm_ds2, test2)
+
+png("figures/cf_plot8.png")
+binary_visualiseR(train_labels = pred_gbm_ds2,
+                               truth_labels = test2$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "GBM Onset",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+pred_cart_ds3 <- predict(cart_ds3, test3)
+
+png("figures/cf_plot9.png")
+binary_visualiseR(train_labels = pred_cart_ds3,
+                               truth_labels = test3$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "CART Regression",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+# Testdaten werden nicht automatisch imputiert (außerhalb Preprocessing)
+pred_rf_ds3 <- predict(rf_ds3, rfImpute(Sepsis ~., test3)[-1])
+
+png("figures/cf_plot10.png")
+binary_visualiseR(train_labels = pred_rf_ds3,
+                               truth_labels = test3$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "Random Forest (imp.) Regression",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+# Vorhersagen nur für vollständige Beobachtungen
+test3_2 <- test3[, colnames(train3_2)] %>%
+  filter(complete.cases(.))
+
+pred_rf_nm_ds3 <- predict(rf_nm_ds3, test3_2)
+
+png("figures/cf_plot11.png")
+binary_visualiseR(train_labels = pred_rf_nm_ds3,
+                               truth_labels = test3_2$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "Random Forest (non-mis.) Regression",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+pred_gbm_ds3 <- predict(gbm_ds3, test3)
+
+png("figures/cf_plot12.png")
+binary_visualiseR(train_labels = pred_gbm_ds3,
+                               truth_labels = test3$Sepsis,
+                               class_label1 = "positiv", 
+                               class_label2 = "negativ",
+                               custom_title = "GBM Regression",
+                               info_box_title = "Statistik",
+                               text_col = "black")
+dev.off()
+
+# zur Anwendung von grid.arrange in grob-Objekt konvertieren
+cf_table1 <- rasterGrob(readPNG("figures/cf_plot1.png"))
+cf_table2 <- rasterGrob(readPNG("figures/cf_plot2.png"))
+cf_table3 <- rasterGrob(readPNG("figures/cf_plot3.png"))
+cf_table4 <- rasterGrob(readPNG("figures/cf_plot4.png"))
+cf_table5 <- rasterGrob(readPNG("figures/cf_plot5.png"))
+cf_table6 <- rasterGrob(readPNG("figures/cf_plot6.png"))
+cf_table7 <- rasterGrob(readPNG("figures/cf_plot7.png"))
+cf_table8 <- rasterGrob(readPNG("figures/cf_plot8.png"))
+cf_table9 <- rasterGrob(readPNG("figures/cf_plot9.png"))
+cf_table10 <- rasterGrob(readPNG("figures/cf_plot10.png"))
+cf_table11 <- rasterGrob(readPNG("figures/cf_plot11.png"))
+cf_table12 <- rasterGrob(readPNG("figures/cf_plot12.png"))
+```
+
+```{r confusion matrix plots1, include = TRUE, fig.cap="Konfusionsmatrizen"}
+grid.arrange(cf_table1, cf_table2, cf_table3, cf_table4, cf_table5, cf_table6,
+             ncol = 2, nrow = 3)
+```
+
+```{r confusion matrix plots2, include = TRUE, fig.cap="Konfusionsmatrizen (Fortsetzung)"}
+grid.arrange(cf_table7, cf_table8, cf_table9, cf_table10, cf_table11, cf_table12,
+             ncol = 2, nrow = 3)
+```
+
+## Entscheidungsregeln und Einfluss einzelner Prädiktoren
 
 ```{r variable importance plot1, include = TRUE, fig.cap="Variablenwichtigkeit CART Baseline"}
 plot(varImp(cart_ds1), top = 20, xlab = "")
@@ -1118,6 +1384,12 @@ plot(varImp(gbm_ds2), top = 20, xlab = "")
 ```{r variable importance plot12, include = TRUE, fig.cap="Variablenwichtigkeit  GBM Regression"}
 plot(varImp(gbm_ds3), top = 20, xlab = "")
 ```
+
+\newpage
+
+# Zusammenfassung und Ausblick
+
+
 
 \newpage
 
