@@ -565,7 +565,7 @@ cart_ds1 <- train(x = train1[,4:41],
 
 Als bestes Modell ergibt sich: `r knitr::kable(cart_ds1$bestTune)`
 
-```{r cart model results ds1, include = TRUE, fig.cap="Entscheidungsbaum Baseline-Datensatz"}
+```{r cart model results ds1, include = TRUE, fig.cap="\\label{cart_ds1}Entscheidungsbaum Baseline-Datensatz"}
 rpart.plot(cart_ds1$finalModel, type = 5)
 ```
 
@@ -715,7 +715,7 @@ gbm_ds1 <- train(x = train1[,4:41],
                  verbose = FALSE)
 ```
 
-Dsa beste Modell ergibt sich mit folgenden Parametern:
+Das beste Modell ergibt sich mit folgenden Parametern:
 `r knitr::kable(gbm_ds1$bestTune)`
 
 ```{r gbm model test ds1}
@@ -744,7 +744,7 @@ cart_ds2 <- train(x = train2[,4:41],
 Aus dem CART-Algorithmus ergibt sich das beste Modell mit: 
 `r knitr::kable(cart_ds2$bestTune)`
 
-```{r cart model results ds2, include = TRUE, fig.cap="Entscheidungsbaum Onset-Datensatz"}
+```{r cart model results ds2, include = TRUE, fig.cap="\\label{cart_ds2}Entscheidungsbaum Onset-Datensatz"}
 rpart.plot(cart_ds2$finalModel, type = 5)
 ```
 
@@ -763,7 +763,7 @@ cart_adj_ds2 <- train(x = train2[,4:40],
 ```
 
 ```{r cart model adjusted results ds2, include = TRUE, fig.cap="Entscheidungsbaum Onset-Datensatz angepasst"}
-rpart.plot(cart_ds2$finalModel, type = 5)
+rpart.plot(cart_adj_ds2$finalModel, type = 5)
 ```
 
 ```{r cart model test ds2}
@@ -888,7 +888,7 @@ cart_ds3 <- train(x = train3[,3:40],
 
  `r knitr::kable(cart_ds3$bestTune)`
 
-```{r cart model results ds3, include = TRUE, fig.cap="Entscheidungsbaum Regressionsdatensatz"}
+```{r cart model results ds3, include = TRUE, fig.cap="\\label{cart_ds3}Entscheidungsbaum Regressionsdatensatz"}
 rpart.plot(cart_ds3$finalModel, type = 5)
 ```
 
@@ -1310,7 +1310,7 @@ binary_visualiseR(train_labels = pred_gbm_ds3,
                                text_col = "black")
 dev.off()
 
-# Dataframe der Konfusionsmatrix für spätere Verwendung (für alle Modelle?)
+# Dataframe der Konfusionsmatrix für spätere Verwendung (sofern benötigt)
 cf_gbm_ds3 <- binary_class_cm(pred_gbm_ds3, test3$Sepsis)
 
 # zur Anwendung von grid.arrange in grob-Objekt konvertieren
@@ -1386,51 +1386,105 @@ nach Anwendungssituation vorzuziehen sein.
 
 ## Entscheidungsregeln und Einfluss einzelner Prädiktoren
 
-```{r variable importance plot1, include = TRUE, fig.cap="Variablenwichtigkeit CART Baseline"}
+Die nachfolgenden Plots stellen die Variablenwichtigkeit der einzelnen Modelle dar.
+Dabei erhält die jeweils wichtigste Variable eine Score von 100 und die weiteren 
+Variablen werden in Relation dazu bewertet. Kriterium ist die Verbesserung des
+Gini-Unreinheitsmaßes.
+
+Es bestätigt sich, was schon anhand der weiter oben visualisierten Bäume abzusehen
+war: Den mit Abstand größten Einfluss auf die Klassifizierung hat die Dauer des 
+Intensivaufenthalts (*ICULOS*) beziehungsweise zur Baseline, wenn *ICULOS* noch 
+wenig aussagekräftig ist, da die Intensivbehandlung meistens gerade erst begonnen
+hat, die Zeit, die zwischen Krankenhausaufnahme und Verlegung auf die
+Intensivstation vergangen ist (*HospAdmTime*). Dies gilt für alle Modelle außer
+dem Random Forest nach Imputation beim Onset-Ansatz; dort hat *Bilirubin_total*
+die größte Wichtigkeit.
+
+Aus den Splits in den Abbildungen \ref{cart_ds2} und \ref{cart_ds3} wird
+ersichtlich, dass zumindest nach den hier vorliegenden Daten das Risiko, eine 
+Sepsis zu entwickeln, steigt, wenn ein Intensivaufenthalt länger als etwa 2,5 Tage
+andauert. Und auch innerhalb der ersten 20 Stunden (*ICULOS* < 14 plus sechs 
+Stunden vom Label bis zur Diagnose) scheint eine Sepsisdiagnose wahrscheinlich.
+Vermutlich handelt es sich hierbei um Patienten, die bereits mit einer Sepsis auf
+die Intensivstation kommen, jedoch noch nicht notwendigerweise diagnostiziert sind, 
+während die zuerst genannte Gruppe die Sepsis erst auf der ITS erwirbt. Dennoch 
+muss der Intensivaufenthalt natürlich nicht kausal für die Erkrankung sein. 
+Möglich ist zum Beispiel auch, dass Personen mit einem längeren Intensivaufenthalt 
+schwerer krank und somit in einem schlechteren Allgemeinzustand sind, der das 
+Entstehen einer Sepsis begünstigt. Ähnlich könnte auch Abbildung \ref{cart_ds1}
+intepretiert werden: Wer sehr schnell (innerhalb der ersten eineinhalb Stunden)
+oder erst spät (nach mehr als 45 Stunden) auf die ITS verlegt wurde, ist in einem
+schlechteren Zustand als die übrigen Intensivpatienten und hat möglicherweise 
+deshalb ein höheres Sepsisrisiko.
+
+Die große Bedeutung der beiden Prädiktoren, kann auch stark davon beinflusst sein,
+dass es sich um zwei von insgesamt nur vier (zusammen mit Alter und Geschlecht) 
+vollständigen Variablen handelt.
+
+Darüber hinaus ergibt sich kein eindeutiges Bild, wenn man sich die Abbildungen
+der Variablenwichtigkeit und der Entscheidungsbäume ansieht. Insgesamt scheinen 
+die Vitalparameter (Blutdruckwerte, Herz- und Atemfrequenz, Temperatur und
+Sauerstoffsättigung) eine größere Bedeutung zuzukommen als den Blutwerten. Jedoch
+gilt auch für diese Werte, dass sie vergleichsweise häufig verfügbar sind.
+
+[TOP-Modelle gesondert angucken
+Random Forest: Korrelation EtCo2 + Bilirubin (über direkt) -> plot_predict_interaction.caret_ranger(rf_ds3$finalModel,ds3_imputed, 
+                                      "slope_Bilirubin_total", "slope_EtCO2")
+Funktion und Package erklären
+
+GBM: 
+
+Korrelationen angucken
+
+Was bedeutet das Bilirubin im Random Forest nach Imputation beim Onset-Ansatz?
+
+Medizinische Einordnung?]
+
+```{r variable importance plot1, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit CART Baseline"}
 plot(varImp(cart_ds1), top = 20, xlab = "")
 ```
 
-```{r variable importance plot2, include = TRUE, fig.cap="Variablenwichtigkeit  CART Onset"}
+```{r variable importance plot2, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit CART Onset"}
 plot(varImp(cart_ds2), top = 20, xlab = "")
 ```
 
-```{r variable importance plot3, include = TRUE, fig.cap="Variablenwichtigkeit CART Regression"}
+```{r variable importance plot3, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit CART Regression"}
 plot(varImp(cart_ds3), top = 20, xlab = "")
 ```
 
-```{r variable importance plot4, include = TRUE, fig.cap="Variablenwichtigkeit  Random Forest Baseline"}
+```{r variable importance plot4, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  Random Forest (imputiert) Baseline"}
 plot(varImp(rf_ds1), top = 20, xlab = "")
 ```
 
-```{r variable importance plot5, include = TRUE, fig.cap="Variablenwichtigkeit Random Forest Onset"}
+```{r variable importance plot5, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit Random Forest (imputiert) Onset"}
 plot(varImp(rf_ds2), top = 20, xlab = "")
 ```
 
-```{r variable importance plot6, include = TRUE, fig.cap="Variablenwichtigkeit  Random Forest Regression"}
+```{r variable importance plot6, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  Random Forest (imputiert) Regression"}
 plot(varImp(rf_ds3), top = 20, xlab = "")
 ```
 
-```{r variable importance plot7, include = TRUE, fig.cap="Variablenwichtigkeit Random Forest (non-missing) Baseline"}
-plot(varImp(rf_nm_ds1), top = 20, xlab = "")
+```{r variable importance plot7, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit Random Forest (non-missing) Baseline"}
+plot(varImp(rf_nm_ds1), top = min(20, n_var1), xlab = "")
 ```
 
-```{r variable importance plot8, include = TRUE, fig.cap="Variablenwichtigkeit  Random Forest (non-missing) Onset"}
-plot(varImp(rf_nm_ds2), top = 20, xlab = "")
+```{r variable importance plot8, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  Random Forest (non-missing) Onset"}
+plot(varImp(rf_nm_ds2), top = min(20, n_var2), xlab = "")
 ```
 
-```{r variable importance plot9, include = TRUE, fig.cap="Variablenwichtigkeit  Random Forest (non-missing) Regression"}
-plot(varImp(rf_nm_ds3), top = 20, xlab = "")
+```{r variable importance plot9, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  Random Forest (non-missing) Regression"}
+plot(varImp(rf_nm_ds3), top = min(20, n_var3), xlab = "")
 ```
 
-```{r variable importance plot10, include = TRUE, fig.cap="Variablenwichtigkeit GBM Baseline"}
+```{r variable importance plot10, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit GBM Baseline"}
 plot(varImp(gbm_ds1), top = 20, xlab = "")
 ```
 
-```{r variable importance plot11, include = TRUE, fig.cap="Variablenwichtigkeit  GBM Onset"}
+```{r variable importance plot11, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  GBM Onset"}
 plot(varImp(gbm_ds2), top = 20, xlab = "")
 ```
 
-```{r variable importance plot12, include = TRUE, fig.cap="Variablenwichtigkeit  GBM Regression"}
+```{r variable importance plot12, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  GBM Regression"}
 plot(varImp(gbm_ds3), top = 20, xlab = "")
 ```
 
@@ -1438,7 +1492,9 @@ plot(varImp(gbm_ds3), top = 20, xlab = "")
 
 # Zusammenfassung und Ausblick
 
-
+[andere Modelle
+andere Imputationsmethoden und/oder vollständigere Daten
+unabhängige Testdaten]
 
 \newpage
 

@@ -7,7 +7,7 @@ function (forest, data, variable1, variable2, grid = 100,
                              length.out = grid), seq(min(data[[variable2]]), max(data[[variable2]]), 
                                                      length.out = grid))
   colnames(newdata) <- c(variable1, variable2)
-  if (as.character(rf_nm_ds1$finalModel$call)[[1]] == "ranger::ranger") { # for ranger model extracted from caret::train object
+  if (as.character(forest$call)[[1]] == "ranger::ranger") { # for ranger model extracted from caret::train object
     other_vars <- forest$x  # all but outcome
   }
   else if (as.character(forest$call[[2]])[3] == ".") {     
