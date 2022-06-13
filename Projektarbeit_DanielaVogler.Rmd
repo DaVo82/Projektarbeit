@@ -215,7 +215,7 @@ Nun analysieren wir die Daten nun auf Korrelationen zwischen den numerischen
 Variablen und betrachten dazu eine Heatmap der Korrelationskoeffizienten nach
 Pearson:
 
-```{r data correlation, fig.cap="Korrelationskoeffizienten nach Pearson", fig.height=8, fig.width=12, message=FALSE, warning=FALSE, include = TRUE}
+```{r data correlation, fig.cap="\\label{cor_plot}Korrelationskoeffizienten nach Pearson", fig.height=8, fig.width=12, message=FALSE, warning=FALSE, include = TRUE}
 data_sample %>% 
   select_if(is.numeric) %>%  
   select(-Patient_ID, -X) %>% 
@@ -695,7 +695,7 @@ klassifizierte Beobachtungen zu verbessern. Hier wird nun zum Vergleich ein
 Stochastic Gradient Boosting mit dem R-Paket *gbm* durchgeführt. Dafür wird das 
 Tunegrid wie folgt definiert:
 
-```{r tune grid gbm}
+```{r tune grid gbm, include = TRUE, echo = TRUE}
 gbm_grid <-  expand.grid(interaction.depth = seq(1, 9, 2),
                         n.trees = c(100, 500, 1000),
                         shrinkage = c(0.001, 0.01, 0.05, 0.1),
@@ -1386,10 +1386,10 @@ nach Anwendungssituation vorzuziehen sein.
 
 ## Entscheidungsregeln und Einfluss einzelner Prädiktoren
 
-Die nachfolgenden Plots stellen die Variablenwichtigkeit der einzelnen Modelle dar.
-Dabei erhält die jeweils wichtigste Variable eine Score von 100 und die weiteren 
-Variablen werden in Relation dazu bewertet. Kriterium ist die Verbesserung des
-Gini-Unreinheitsmaßes.
+Die Plots am Ende diesesAbschnitts stellen die Variablenwichtigkeit der einzelnen
+Modelle dar. Dabei erhält die jeweils wichtigste Variable eine Score von 100 und 
+die weiteren Variablen werden in Relation dazu bewertet. Kriterium ist die
+Verbesserung des Gini-Unreinheitsmaßes.
 
 Es bestätigt sich, was schon anhand der weiter oben visualisierten Bäume abzusehen
 war: Den mit Abstand größten Einfluss auf die Klassifizierung hat die Dauer des 
@@ -1408,16 +1408,16 @@ Stunden vom Label bis zur Diagnose) scheint eine Sepsisdiagnose wahrscheinlich.
 Vermutlich handelt es sich hierbei um Patienten, die bereits mit einer Sepsis auf
 die Intensivstation kommen, jedoch noch nicht notwendigerweise diagnostiziert sind, 
 während die zuerst genannte Gruppe die Sepsis erst auf der ITS erwirbt. Dennoch 
-muss der Intensivaufenthalt natürlich nicht kausal für die Erkrankung sein. 
+muss der Intensivaufenthalt nicht notwendigerweise kausal für die Erkrankung sein. 
 Möglich ist zum Beispiel auch, dass Personen mit einem längeren Intensivaufenthalt 
 schwerer krank und somit in einem schlechteren Allgemeinzustand sind, der das 
 Entstehen einer Sepsis begünstigt. Ähnlich könnte auch Abbildung \ref{cart_ds1}
-intepretiert werden: Wer sehr schnell (innerhalb der ersten eineinhalb Stunden)
+interpretiert werden: Wer sehr schnell (innerhalb der ersten eineinhalb Stunden)
 oder erst spät (nach mehr als 45 Stunden) auf die ITS verlegt wurde, ist in einem
 schlechteren Zustand als die übrigen Intensivpatienten und hat möglicherweise 
 deshalb ein höheres Sepsisrisiko.
 
-Die große Bedeutung der beiden Prädiktoren, kann auch stark davon beinflusst sein,
+Die große Bedeutung der beiden Prädiktoren kann auch stark davon beinflusst sein,
 dass es sich um zwei von insgesamt nur vier (zusammen mit Alter und Geschlecht) 
 vollständigen Variablen handelt.
 
@@ -1427,18 +1427,172 @@ die Vitalparameter (Blutdruckwerte, Herz- und Atemfrequenz, Temperatur und
 Sauerstoffsättigung) eine größere Bedeutung zuzukommen als den Blutwerten. Jedoch
 gilt auch für diese Werte, dass sie vergleichsweise häufig verfügbar sind.
 
-[TOP-Modelle gesondert angucken
-Random Forest: Korrelation EtCo2 + Bilirubin (über direkt) -> plot_predict_interaction.caret_ranger(rf_ds3$finalModel,ds3_imputed, 
-                                      "slope_Bilirubin_total", "slope_EtCO2")
-Funktion und Package erklären
+Schauen wir uns die beiden favorisiereten Modelle genauer an:
 
-GBM: 
+Die Gradient Bossting Machine mit dem Regressionsansatz wird stärker als jedes
+andere Modell von *ICULOS* dominiert. Kein anderer Prädiktor erreicht einen Score
+über 10 und die nächstplatzierten Variablen liegen sehr dicht beisammen. Eine
+sinnvolle Interpretation einzelner Bäume der GBM ist aufgrund des iterativen 
+Aufbaus des Algorithmus kaum möglich. Insgesamt lässt sich daher nur sagen, dass
+eine große Bandbreite an Prädiktoren Verwendung findet, der Dauer des Aufenthalts
+auf der ITS aber die mit Abstand größte Bedeutung zukommt.
 
-Korrelationen angucken
+Bei dem auf  dem Tetsdatensatz wegen seiner sehr hohen Spezifität positiv
+aufgefallenen Modell, dem Random Forest nach Imputation auf dem
+Regressionsdatensatz, zeichnet sich ein klareres Bild ab. Hier ist der Slope des
+endtidalen Kohlendioxids (*EtCO2*) die mit Abstand zweitwichtigste  Variable.
+Zubeachten ist auch, dass an dritter Stelle der Slope des *Bilirubin_total*
+folgt (der Variable, die im Random Forest das Onset-Datensatzes als wichtigste
+bestimmt wurde), denn wie aus Abbildung \ref{cor_plot} ersichtlich ist, korreliert
+*Bilirubin_total* vollständig mit dem aus unseren Daten entfernten 
+*Bilirubin_direct* und letzteres korreliert deutlich negativ mit *EtCO2*. Der 
+Korrelationskoeffizient für *EtCO2* und *Bilirubin_total* selbst ist wenig
+aussagekräftig, weil es kaum Beobachtungen gibt, die für beide Variablen Werte
+aufweisen. Wie im Kapitel zur Datenexploration bereits erwähnt, ist es möglich, 
+dass für einen Split nicht die eigentlich relevante Variable herangezogen wird,
+sondern eine mit ihr korrelierte. Das könnte bedeuten, dass nur einer der beiden
+hier diskutierten Prädiktoren wirklich bedeutsam für den Random Forest ist, dies 
+aber in umso höherem Maße. Falls dies zutrifft, ist zu erwarten, dass entweder 
+ein negativer *EtCO2*-Slope (Verringerung des Werts) und ein positiver 
+*Bilirubin_total*-Slope (Erhöhung des Werts) die Vorhersagewahrscheinlichkeit einer
+Sepsis erhöhen oder genau andersherum. Um dies zu untersuchen, soll ein
+Vorhersage-Interaktions-Plot bei beiden Variablen auf dem Modell betrachtet werden.
+Eine Funktion, um einen solchen Plot zu erstellen, ist im R-Paket
+*randomForestExplainer* enthalten. Allerdings funktioniert diese nicht für
+*ranger*-Objekte, die aus einem *caret::train*-Objekt extrahiert wurden. Daher habe
+ich den Code leicht modifiziert. Die Änderungen befinden sich in den Codezeilen 
+12, 13 und 43 (wobei die Änderung in Zeile 43 nicht zwingend notwendig):
 
-Was bedeutet das Bilirubin im Random Forest nach Imputation beim Onset-Ansatz?
+```{r plot_predict_interaction function, attr.source = ".numberLines", include = TRUE, echo = TRUE, cache = FALSE}
+plot_predict_interaction.caret_ranger <-
+function(forest, data, variable1, variable2, grid = 100, 
+          main = paste0("Prediction of the forest for different values of ", 
+                 paste0(variable1, paste0(" and ", variable2))), time = NULL) 
+{
+  newdata <- expand.grid(seq(min(data[[variable1]]), max(data[[variable1]]), 
+                             length.out = grid), 
+                         seq(min(data[[variable2]]), max(data[[variable2]]), 
+                            length.out = grid))
+  colnames(newdata) <- c(variable1, variable2)
+      # for ranger model extracted from caret::train object
+  if (as.character(forest$call)[[1]] == "ranger::ranger") { 
+    other_vars <- forest$x  # all but outcome
+  }
+  else if (as.character(forest$call[[2]])[3] == ".") {     
+    other_vars <- setdiff(names(data), as.character(forest$call[[2]])[2])
+  }
+  else {
+    other_vars <- labels(terms(as.formula(forest$call[[2]])))
+  }
+ 
+  other_vars <- setdiff(other_vars, c(variable1, variable2))
+  n <- nrow(data)
+  for (i in other_vars) {
+    newdata[[i]] <- data[[i]][sample(1:n, nrow(newdata), 
+                                     replace = TRUE)]
+  }
+  if (forest$treetype == "Regression") {
+    newdata$prediction <- 
+      predict(forest, newdata, type = "response")$predictions
+    plot <- ggplot(newdata, aes_string(x = variable1, y = variable2, 
+                                       fill = "prediction")) + 
+      geom_raster() + 
+      theme_bw() + 
+      scale_fill_gradient2(midpoint = min(newdata$prediction) + 
+                             0.5 * (max(newdata$prediction) - 
+                                   min(newdata$prediction)), 
+                           low = "blue", high = "red")
+  }
+  else if (forest$treetype == "Probability estimation") {
+    id_vars <- colnames(newdata)
+    pred <- predict(forest, newdata)$predictions
+    if (ncol(pred) == 2) {
+      newdata[, paste0("probability_", colnames(pred)[1])] <- pred[,1] 
+    }                               #changed from -1 to 1 to get positives
+    else {
+      newdata[, paste0("probability_", colnames(pred))] <- pred
+    }
+    newdata <- reshape2::melt(newdata, id.vars = id_vars)
+    newdata$prediction <- newdata$value
+    plot <- ggplot(newdata, aes_string(x = variable1, y = variable2, 
+                                       fill = "prediction")) + 
+      geom_raster() + 
+      theme_bw() + 
+      facet_wrap(~variable) + 
+      scale_fill_gradient2(midpoint = min(newdata$prediction) + 
+                                      0.5 * (max(newdata$prediction) 
+                                            - min(newdata$prediction)), 
+        low = "blue", high = "red")
+  }
+  else if (forest$treetype == "Classification") {
+    stop(
+      "Ranger forest for classification needs to be generated by ranger(...,
+      probability = TRUE).")
+  }
+  else if (forest$treetype == "Survival") {
+    pred <- predict(forest, newdata, type = "response")
+    if (is.null(time)) {
+      time <- pred$unique.death.times[which.min(abs(colMeans(pred$survival, 
+                                                    na.rm = TRUE) - 0.5))]
+      message(sprintf(
+        "Using unique death time %s which is the closest to predicted median
+        survival time.", 
+                      time))
+    }
+    else if (!time %in% pred$unique.death.times) {
+      new_time <- 
+        pred$unique.death.times[which.min(
+                                  abs(pred$unique.death.times - time))]
+      message(sprintf("Using closest unique death time %s instead of %s.", 
+                      new_time, time))
+      time <- new_time
+    }
+    newdata$prediction <- pred$survival[, pred$unique.death.times == time, 
+                                        drop = TRUE]
+    plot <- ggplot(newdata, aes_string(x = variable1, y = variable2, 
+                                       fill = "prediction")) + 
+      geom_raster() + 
+      theme_bw() + 
+      scale_fill_gradient2(midpoint = min(newdata$prediction) + 
+                                      0.5 * (max(newdata$prediction) 
+                                             -  min(newdata$prediction)), 
+                           low = "blue", high = "red")
+  }
+  else {
+    stop(sprintf("Ranger forest type '%s' is currently not supported.", 
+                 forest$treetype))
+  }
+  if (!is.null(main)) {
+    plot <- plot + ggtitle(main)
+  }
+  return(plot)
+}
+```
 
-Medizinische Einordnung?]
+```{r interaction plot, include = TRUE, fig.cap="Vorhersage-Interaktion zwischen Bilirubin und Kohlendioxidwert im Random Forest (Regressionsdatensatz)"}
+plot_predict_interaction.caret_ranger(rf_ds3$finalModel,ds3_imputed, 
+                                      "slope_Bilirubin_total", "slope_EtCO2",
+                                      main = "")
+```
+
+Tatsächlich ist zu erkennen, dass die Vorhersagewahrscheinlichkeit für eine Sepsis
+am höchsten ist, wenn der *Bilirubin_total*-Wert steigt, während der *EtCO2*-Wert
+abnimmt.
+
+Die CART-Bäume wurden hauptsächlich mit dem Ziel angepasst, Entscheidungsregeln
+beziehungsweise -pfade abzuleiten. Da aus dem Tuning entstandenen Bäume nur die
+Dauer des Intensivaufenthalts beziehungsweise die Zeit von der Hospitalisierung
+bis zur Verlegung auf die Intensivstation abbilden, ist aus ihnen außer den bereits 
+ausgeführten Überlegungen zu diesen Variablen zunächst nicht viel ersichtlich. Die
+Auswertungen der Variablenwichtigkeit und die weiteren generierten
+Entscheidungsbäume, denen die jeweilige zuvor stärkste Variable entzogen wurde,
+lassen jedoch vermuten, dass eine erhöhte Körpertemperatur (*Temp*), ein niedriger 
+oder fallender Blutdruck (*MAP*, *DBP*, *SBP*), eine hohe Atemfrequenz (*Resp*)
+sowie eine hohe Herzfrequenz (*HR*) Anzeichen für eine beginnende Sepsis sein 
+können. Dies deckt sich in etwa mit den obligaten Diagnosekriterien nach
+[@Sepsisbuch].
+
+[evtl. Zusammenspiel Glukose-, Kalium- und Chloridänderung Medizinische Einordnung?]
 
 ```{r variable importance plot1, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit CART Baseline"}
 plot(varImp(cart_ds1), top = 20, xlab = "")
