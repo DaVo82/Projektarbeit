@@ -28,6 +28,8 @@ header-includes:
   - \usepackage[utf8]{inputenc}
   - \usepackage{makecell}
   - \usepackage{xcolor}
+  - \usepackage{hyphenat}
+  - \hyphenation{Ent-wicklung Event-rate Intensiv-aufent-halts}
   - \floatplacement{figure}{H}
 bibliography: bibliography.bib
 fontsize: 12pt
@@ -72,28 +74,34 @@ library(randomForestExplainer)
 # Einleitung
 
 Eine Sepsis ist eine sehr ernste gesundheitliche Komplikation, insbesondere auf 
-Intensivstationen. Die Sterblichkeitsrate liegt bei schweren Verläufen je nach 
-genauer Abgrenzung der Diagnosen bei um die 50% und höher. Eine frühzeitige
-Erkennung und damit einhergehend eine rechtzeitige Therapie gelten als wichtigste
-Mittel zur Verbesserung der Überlebensrate. 
+Intensivstationen. Die Sterblichkeitsrate liegt bei etwa 30-50 %. Zudem entstehen 
+jährlich Behandlungskosten in Höhe von mehreren Milliarden Euro alleine in 
+Deutschland [@Dennler].
+\newline
+Eine frühzeitige Erkennung und damit einhergehend eine rechtzeitige Therapie gelten
+als wichtigste Mittel zur Verbesserung der Überlebensrate. Jedoch sind die Symptome
+vor allem in der frühen Erkrankungsphase unspezifisch und vielfältig, was eine
+rechtzeitige Diagnose erschwert.
 
 In dieser Arbeit werden daher Möglichkeiten untersucht, eine Sepsis anhand
-diverser Blutwerte und Vitalparameter, die üblicherweise im Rahmen von
-Intensivbehandlungen erhoben werden, mittels prädiktiver Modelle bereits zu
-erkennen, bevor sie klinisch diagnostiziert wird. Da der Einsatz von Machine
-Learning-Algorithmen zur medizinischen Entscheidungsfindung nicht überall 
+diverser Blutwerte und Vitalparameter, die im Rahmen von Intensivbehandlungen 
+teils regelmäßig, teils nach Bedarf erhoben werden, mittels prädiktiver Modelle 
+bereits zu erkennen, bevor sie klinisch diagnostiziert wird. Da der Einsatz von
+Machine Learning-Algorithmen zur medizinischen Entscheidungsfindung nicht überall 
 möglich und gewünscht ist, wird neben der Entwicklung von Vorhersagemodellen
 auch die Frage untersucht, ob Entscheidungsregeln zur Unterstützung ärztlicher
 Entscheidungen ableitbar sind.
 
-Die bearbeitete Fragestellung lässt sich wie folgt zusammenfassen: \newline
+Die bearbeitete Fragestellung lässt sich wie folgt zusammenfassen: 
+\newline
 1. Welche Entscheidungskriterien hinsichtlich einer Klassifikation von
 Intensivpatienten in die Kategorien "wird eine Sepsis entwickeln" und "wird keine
-Sepsis entwickeln" lassen sich mittels einzelner Entscheidungsbäume ableiten? \newline
+Sepsis entwickeln" lassen sich mittels einzelner Entscheidungsbäume ableiten?
+\newline
 2. Welches Modell aus dem Bereich der baumbasierten Ensemblemethoden ist am 
 besten geeignet, um aus demografischen Daten, Blutwerten und Vitalparametern 
 eines Intensivpatienten vorherzusagen, ob dieser an einer Sepsis erkranken wird
-(bzw. bereits unerkannt erkrankt ist)?
+bzw. bereits unerkannt erkrankt ist?
 
 Die verwendeten Daten stammen aus dem unter *Open Database License (ODbL)* 
 verfügbaren Kaggle-Datensatz *Dataset.csv* [@KaggleData; @Physionet]. 
@@ -125,22 +133,28 @@ data_sample <- data_complete %>%
 ```
 
 Für diese Arbeit wird ein zufälliges Subsample des oben angegebenen Datensatzes 
-mit `r nrow(data_sample)` Beobachtungen zu 
-`r length(unique(data_sample$Patient_ID))` Intensivpatienten verwendet. Die Daten
-umfassen neben einigen demografischen und administrativen Baseline-Angaben zum
-Fall acht Vitalparameter (Variablen 3-10) und 26 Blutwerte (Variablen 11-36), 
-siehe Tabelle \ref{vars_table} im Anhang. 
+mit 
+`r prettyNum(nrow(data_sample), big.mark = ".", decimal.mark = ",")` 
+Beobachtungen zu 
+`r prettyNum(length(unique(data_sample$Patient_ID)), big.mark = ".", 
+              decimal.mark = ",")` 
+Intensivpatienten aus zwei verschiedenen US-amerikanischen Krankenhäusern 
+verwendet. Die Daten umfassen neben einigen demografischen und administrativen
+Baseline-Angaben zum Fall acht Vitalparameter (Variablen 3-10) und 26 Blutwerte
+(Variablen 11-36), siehe Tabelle \ref{vars_table} im Anhang. 
+\newline
 Die Erfassung erfolgte stündlich; kontinuierlich gemessene Werte wurden gemittelt.
 
 Zu beachten ist, dass die Daten bereits sechs Stunden vor dem Ausbruch der Sepsis
 als positiv gelabelt wurden, sodass eine korrekte Klassifizierung als 
 Sepsispatient einem zeitlichen Vorsprung von drei bis sechs Stunden entspricht. 
 Dabei ergibt sich ein Zeitfenster kleiner sechs Stunden, wenn der Ausbruch 
-innerhalb von sechs Stunden nach Aufnahme auf die Intensivstation erfolgt, wobei 
-Ausbrüche innerhalb weniger als vier Stunden aus den Daten entfernt wurden. Als 
-Ausbruch gilt das Auftreten eines Organversagens gemäß Sequential Organ Failure
+innerhalb der ersten sechs Stunden nach Aufnahme auf die Intensivstation erfolgt,
+wobei Ausbrüche innerhalb weniger als vier Stunden aus den Daten entfernt wurden.
+Als Ausbruch gilt das Auftreten eines Organversagens gemäß Sequential Organ Failure
 Assessment (SOFA) oder ein klinischer Verdacht, der sich in einer intravenösen
-Antibiotikagabe und dem Anlagen von Blutkulturen widerspiegelt.
+Antibiotikagabe und dem Anlegen von Blutkulturen widerspiegelt. Zu den Details 
+siehe [@Physionet].
 
 ```{r data structure}
 summary(data_sample)
@@ -211,9 +225,8 @@ outcome <- outcome %>%
 data_sample <- merge(data_sample, outcome, by = "Patient_ID")
 ```
 
-Nun analysieren wir die Daten nun auf Korrelationen zwischen den numerischen
-Variablen und betrachten dazu eine Heatmap der Korrelationskoeffizienten nach
-Pearson:
+Nun analysieren wir die Daten auf Korrelationen zwischen den numerischen Variablen
+und betrachten dazu eine Heatmap der Korrelationskoeffizienten nach Pearson:
 
 ```{r data correlation, fig.cap="\\label{cor_plot}Korrelationskoeffizienten nach Pearson", fig.height=8, fig.width=12, message=FALSE, warning=FALSE, include = TRUE}
 data_sample %>% 
@@ -331,7 +344,7 @@ Nach den grundlegenden Vorbereitungen aus dem vorigen Kapitel ergeben sich zwei
 wesentliche Herausforderungen aus der Datenstruktur.
 
 Zum einen ist die Anzahl fehlender Werte in vielen Variablen sehr hoch. Dies
-gilt auch nach der bereits aufgrund von Fachlichen Überlegungen erfolgten 
+gilt auch nach der bereits aufgrund von fachlichen Überlegungen erfolgten 
 LOCF-Imputation einiger Prädiktoren weiterhin. Während der CART-Algorithmus zum
 Anpassen von Entscheidungsbäumen solche Situationen intern durch Surrogate Splits
 handhabt, müssen für viele andere Varianten von Entscheidungsbäumen und
@@ -340,7 +353,7 @@ vollständige Beobachtungen eingeschränkt werden.Dies gilt zum Beispiel für di
 Anwendung von Random Forests. Gradient Boosting Machines wiederum behandeln 
 fehlende Werte intern, indem sie diese als eigene Klasse beziehungsweise Wert
 definieren.
-
+\newline
 Der geeignete Umgang mit fehlenden Daten hängt stark davon ab, welcher Mechanismus
 dem Fehlen zugrunde liegt. Imputationsmethoden setzen grundsätzlich mindestens
 Missing At Random (MAR) voraus. Es ist anzunehmen, dass im vorliegenden Datensatz
@@ -359,7 +372,7 @@ die jeweiligen Modelle erforderlich, zwei Vorgehensweisen miteinander verglichen
 Variablen) und eine Imputation mit der im R-Paket *randomForest* implementierten 
 Methode nach Breiman, die fehlende Werte iterativ anhand von Proximity-Matrizen
 in Random Forests konstruiert [@Breiman]. Auf multiple Imputation wird hier 
-verzichtet, um den gezeilt verkleinerten Datensatz nicht wieder erheblich zu 
+verzichtet, um den gezielt verkleinerten Datensatz nicht wieder erheblich zu 
 vergrößern. Dennoch ist festzuhalten, dass multiple Imputation eine mögliche
 Alternative darstellt, die hinsichtlich einer eventuellen Verzerrung Vorteile
 aufweist.
@@ -368,7 +381,7 @@ Zum anderen müssen die longitudinalen Daten für die Anwendung baumbasierter
 Verfahren zu je einer Beobachtung pro Patient zusammengefasst werden. Dazu werden 
 drei Ansätze miteinander verglichen:
 
-**1. Baseline-Datensatz:** Es werden alle Datensätze mit Hour = 1, d. h. die
+**1. Baseline-Datensatz:** Es werden alle Datensätze mit *Hour* = 1, d. h. die
 zweite vorliegende Messung, verwendet. Die Wahl fällt deshalb nicht auf die erste
 Messung, weil in dieser besonders viele Werte fehlen. Es ist zu beachten, dass der
 Zeitpunkt der ersten Messung nicht notwendigerweise mit der Aufnahme auf die
@@ -529,7 +542,7 @@ und die F1-Metrik (harmonisches Mittel aus Precision und Recall) an.
 Wir werden später beim Modellvergleich sehen, dass die AUC-Metrik im Vergleich zur
 F1-Metrik falsch positive Klassifizierungen stärker bestraft und dafür eine
 niedrige Detektionsrate in Kauf nimmt. Für diese Arbeit ist die Entscheidung für
-die F1-Metrik gefallen. Sie berücksichtigt gleichermaßen den Anteil der richtig
+die F1-Metrik gefallen. Diese berücksichtigt gleichermaßen den Anteil der richtig
 positiven an den Events als auch den Anteil der richtig positiven an den insgesamt
 positiv klassifizierten Beobachtungen, kann aber leicht so verallgemeinert werden,
 dass entweder der Recall (= Sensitivität) oder die Präzision stärker gewichtet
@@ -570,12 +583,12 @@ rpart.plot(cart_ds1$finalModel, type = 5)
 ```
 
 Dass die Zeitspanne zwischen Krankenhausaufnahme und Verlegung auf die ITS
-(*HospAdmTime*) eine Rolle spielt, erscheint einleuchtend. Da hier jedoch gar keine
-weiteren Variablen herangezogen werden, wird noch ein Baum ohne *HospAdmTime*
-angepasst. Dieser wird mit Defaultparametern allerdings so tief, dass er
-nachträglich geprunt werden muss, um visuelle Erkenntnisse aus der Baumstruktur 
-zu ermöglichen. Der geeignete Complexity-Parameter wurde durch manuelles
-Ausprobieren bestimmt und auf CP = 0,02 gesetzt.
+$\nobreak (*HospAdmTime*)$ eine Rolle spielt, erscheint einleuchtend. Da hier 
+jedoch gar keine weiteren Variablen herangezogen werden, wird noch ein Baum ohne
+*HospAdmTime* angepasst. Dieser wird mit Defaultparametern allerdings so tief, 
+dass er nachträglich geprunt werden muss, um visuelle Erkenntnisse aus der
+Baumstruktur zu ermöglichen. Der geeignete Complexity-Parameter wurde durch
+manuelles Ausprobieren bestimmt und auf cp = 0,02 gesetzt. Es ergibt sich:
 
 ```{r cart model adjusted ds1}
 set.seed(12345)
@@ -641,9 +654,10 @@ confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis,
 ```
 
 Als weiterer Ansatz wird nun der Datensatz auf diejenigen Prädiktoren mit weniger
-als 30 % fehlenden Werten eingeschränkt und anschließend  nur die vollständigen
-Beobachtungen einbezogen. Dabei ist zu beachten, dass das Tunegrid für den
-Parameter *mtry* (d. h. die Anzahl der pro Split einbezogenen möglichen Splitvariablen) auf maximal (Anzahl der Variablen - 1) beschränkt wird.
+als $\nobreak 30\ \%$ fehlenden Werten eingeschränkt und anschließend nur die
+vollständigen Beobachtungen einbezogen. Dabei ist zu beachten, dass das Tunegrid 
+für den Parameter *mtry* (d. h. die Anzahl der pro Split einbezogenen möglichen
+Splitvariablen) auf maximal (Anzahl der Variablen - 1) beschränkt wird.
 
 ```{r non-missings ds1, include = TRUE, fig.cap="Fehlende Werte im Baseline-Datensatz"}
 vis_miss(dataset1)
@@ -702,6 +716,11 @@ gbm_grid <-  expand.grid(interaction.depth = seq(1, 9, 2),
                         n.minobsinnode = seq(5, 20, 5))
 ```
 
+Obwohl, wie wir später sehen werden, in zwei Fällen die maximale hier getestete 
+Anzahl von Bäumen zum besten Modell führt, wird auf höhere Werte für
+*n.trees* verzichtet, um die Rechenzeit nicht zu sehr zu erhöhen und weil sich 
+die Evaluationsmetriken nur noch geringfügig ändern.
+
 ```{r gbm model ds1}
 set.seed(12345)
 
@@ -749,7 +768,7 @@ rpart.plot(cart_ds2$finalModel, type = 5)
 ```
 
 Ähnlich wie beim Baseline-Ansatz wird hier nur eine Prädiktorvariable verwendet - in diesem Fall die Länge des Intensivaufenthalts (*ICULOS*). Analog zum Vorgehen im
-vorigen Abschnitt wird nun auch hier diese Variable ausgeschlossen:
+vorigen Abschnitt wird nun auch hier diese Variable ausgeschlossen. Dies führt zu:
 
 ```{r cart model adjusted ds2}
 set.seed(12345)
@@ -848,7 +867,7 @@ confusionMatrix(data = pred_rf_nm_ds2, reference = test2_2$Sepsis,
                 positive = "positiv")
 ```
 
-Und schließlich für die Gradient Boosting Machine:
+Und für die Gradient Boosting Machine ergibt sich schließlich:
 
 ```{r gbm model ds2}
 set.seed(12345)
@@ -892,7 +911,7 @@ cart_ds3 <- train(x = train3[,3:40],
 rpart.plot(cart_ds3$finalModel, type = 5)
 ```
 
-Wiederum im finalen Modell nur die Dauer des Intensivaufenthalts als
+Wiederum wird im finalen Modell nur die Dauer des Intensivaufenthalts als
 Splitvariable verwendet und daher ein weiterer Baum ohne diesen Prädiktor
 angepasst:
 
@@ -1019,18 +1038,18 @@ confusionMatrix(data = pred_gbm_ds3, reference = test3$Sepsis,
 ## Vergleich der Modelle
 
 ```{r resamples}
-results <- resamples(list(ds1_cart = cart_ds1,
-                          ds2_cart = cart_ds2,
-                          ds3_cart = cart_ds3,
-                          ds1_rf_rfImpute = rf_ds1, 
-                          ds1_rf_nonmissing = rf_nm_ds1,
-                          ds2_rf_rfImpute = rf_ds2, 
-                          ds2_rf_nonmissing = rf_nm_ds2,
-                          ds3_rf_rfImpute = rf_ds3, 
-                          ds3_rf_nonmissing = rf_nm_ds3,
-                          ds1_gbm = gbm_ds1, 
-                          ds2_gbm = gbm_ds2, 
-                          ds3_gbm = gbm_ds3))
+results <- resamples(list(CART_Baseline = cart_ds1,
+                          RF_imputiert_Baseline = rf_ds1,
+                          RF_nonmissing_Baseline = rf_nm_ds1,
+                          GBM_Baseline = gbm_ds1,
+                          CART_Onset = cart_ds2,
+                          RF_imputiert_Onset = rf_ds2,
+                          RF_nonmissing_Onset = rf_nm_ds2,
+                          GBM_Onset = gbm_ds2,
+                          CART_Regression = cart_ds3,
+                          RF_imputiert_Regression = rf_ds3,
+                          RF_nonmissing_Regression = rf_nm_ds3,
+                          GBM_Regresion = gbm_ds3))
 ```
 
 Die folgenden Übersichten vergleichen anhand der Resampling-Statistiken jeweils
@@ -1038,8 +1057,8 @@ den CART-Entscheidungsbaum, den Random Forest nach Imputation, den Random Forest
 auf vollständigen Beobachtungen und die Gradient Boosting Machine für jeden 
 der drei Datensätze (also Baseline, Onset und Regression). Die weiteren 
 angepassten Entscheidungsbäume, bei denen jeweils die zunächst verwendete 
-Splitvariable aus der Betrachtung entfernt wurden, werden nicht mit einbezogen, 
-da sie weniger der verbesserung der Vorhersagequalität als vielmehr der Beurteilung
+Splitvariable aus der Betrachtung entfernt wurde, werden nicht mit einbezogen, 
+da sie weniger der Verbesserung der Vorhersagequalität als vielmehr der Beurteilung
 relevanter Kriterien dienen sollen.
 
 ```{r resamples F statistics, include = TRUE}
@@ -1077,7 +1096,7 @@ knitr::kable(summary(results)$statistics$Recall,
 \clearpage
 
 ```{r resamples plot, include = TRUE, fig.cap="Modellvergleich"}
-dotplot(results)
+dotplot(results, cex.axis = 1)
 ```
 
 Es stellt sich heraus, dass gemessen an der F1-Metrik die Gradient Boosting 
@@ -1100,10 +1119,11 @@ fehlenden Werten durch die Verwendung von Surrogate Splits zum Tragen. Insbesond
 bei Vorliegen eines MNAR-Mechanismus, der hier wie weiter oben erläutert nicht
 ausgeschlossen werden kann, sind vergleichsweise schlechte Ergebnisse aufgrund 
 einer Verzerrung nach Imputation oder bei einer Complete Case Analysis zu erwarten.
+\newline
 Zu beachten ist außerdem, dass für die Random Forests des Baseline-Datensatzes 
-kein Konfidenzintervall der F1-Metrik angegeben werden kann, da die Metrik auf vier 
-der fünf Folds nicht berechnet werden konnte, weil Precision und Recall jeweils Null
-sind.
+kein Konfidenzintervall der F1-Metrik angegeben werden kann, da die Metrik auf 
+vier der fünf Folds nicht berechnet werden konnte, weil Precision und Recall
+jeweils Null sind.
 
 Gemessen an der AUC-Metrik (bezogen auf die Precision Recall-Kurve) ergibt sich 
 ein ähnliches Bild. Der deutlichste Unterschied besteht im Ranking des CART-Modells
@@ -1114,7 +1134,7 @@ Recall aber sehr gut ist (mit
 der zweitbeste Wert).
 
 Für eine klinische Anwendung empfiehlt sich demzufolge von den untersuchten Modellen
-vor allem die Gradient Boosting Machine in Verbindung mit einem Regressionsmodell.
+vor allem die Gradient Boosting Machine in Verbindung mit einem Regressionsansatz.
 
 Wird ein weniger rechenintensives oder besser interpretierbares Verfahren benötigt,
 so stellt der CART-Baum auf dem Regressionsdatensatz insbesondere dann eine gute
@@ -1345,8 +1365,8 @@ grid.arrange(cf_table9, cf_table10, cf_table11, cf_table12,
 
 Alle Modelle mit Ausnahme des CART und des GBM auf dem Baseline-Datensatz weisen 
 hohe Accuracys von über 90 % auf; allerdings ist dies aufgrund der niedrigen
-Prävalenz wenig aussagekräftig, da Werte in diesem Bereich bereits erreicht werden,
-wenn immer negativ klassifiziert wird.
+Prävalenz wenig aussagekräftig, da Werte in diesem Bereich bereits erreicht würden,
+wenn immer negativ klassifiziert würde.
 
 Da wir uns mit den Sepsis-Labeln zeitlich vor der tatsächlichen Diagnose befinden,
 kann grundsätzlich jede richtig positive Klassifizierung als Verbesserung 
@@ -1386,10 +1406,10 @@ nach Anwendungssituation vorzuziehen sein.
 
 ## Entscheidungsregeln und Einfluss einzelner Prädiktoren
 
-Die Plots am Ende diesesAbschnitts stellen die Variablenwichtigkeit der einzelnen
+Die Plots am Ende dieses Abschnitts stellen die Variablenwichtigkeit der einzelnen
 Modelle dar. Dabei erhält die jeweils wichtigste Variable eine Score von 100 und 
 die weiteren Variablen werden in Relation dazu bewertet. Kriterium ist die
-Verbesserung des Gini-Unreinheitsmaßes.
+Verbesserung hinsichtlich des Gini-Unreinheitsmaßes.
 
 Es bestätigt sich, was schon anhand der weiter oben visualisierten Bäume abzusehen
 war: Den mit Abstand größten Einfluss auf die Klassifizierung hat die Dauer des 
@@ -1422,14 +1442,14 @@ dass es sich um zwei von insgesamt nur vier (zusammen mit Alter und Geschlecht)
 vollständigen Variablen handelt.
 
 Darüber hinaus ergibt sich kein eindeutiges Bild, wenn man sich die Abbildungen
-der Variablenwichtigkeit und der Entscheidungsbäume ansieht. Insgesamt scheinen 
-die Vitalparameter (Blutdruckwerte, Herz- und Atemfrequenz, Temperatur und
+der Variablenwichtigkeit und der Entscheidungsbäume ansieht. Insgesamt scheint 
+den Vitalparametern (Blutdruckwerte, Herz- und Atemfrequenz, Temperatur und
 Sauerstoffsättigung) eine größere Bedeutung zuzukommen als den Blutwerten. Jedoch
 gilt auch für diese Werte, dass sie vergleichsweise häufig verfügbar sind.
 
 Schauen wir uns die beiden favorisiereten Modelle genauer an:
 
-Die Gradient Bossting Machine mit dem Regressionsansatz wird stärker als jedes
+Die Gradient Boosting Machine mit dem Regressionsansatz wird stärker als jedes
 andere Modell von *ICULOS* dominiert. Kein anderer Prädiktor erreicht einen Score
 über 10 und die nächstplatzierten Variablen liegen sehr dicht beisammen. Eine
 sinnvolle Interpretation einzelner Bäume der GBM ist aufgrund des iterativen 
@@ -1441,7 +1461,7 @@ Bei dem auf  dem Tetsdatensatz wegen seiner sehr hohen Spezifität positiv
 aufgefallenen Modell, dem Random Forest nach Imputation auf dem
 Regressionsdatensatz, zeichnet sich ein klareres Bild ab. Hier ist der Slope des
 endtidalen Kohlendioxids (*EtCO2*) die mit Abstand zweitwichtigste  Variable.
-Zubeachten ist auch, dass an dritter Stelle der Slope des *Bilirubin_total*
+Zu beachten ist auch, dass an dritter Stelle der Slope des *Bilirubin_total*
 folgt (der Variable, die im Random Forest das Onset-Datensatzes als wichtigste
 bestimmt wurde), denn wie aus Abbildung \ref{cor_plot} ersichtlich ist, korreliert
 *Bilirubin_total* vollständig mit dem aus unseren Daten entfernten 
@@ -1456,12 +1476,12 @@ aber in umso höherem Maße. Falls dies zutrifft, ist zu erwarten, dass entweder
 ein negativer *EtCO2*-Slope (Verringerung des Werts) und ein positiver 
 *Bilirubin_total*-Slope (Erhöhung des Werts) die Vorhersagewahrscheinlichkeit einer
 Sepsis erhöhen oder genau andersherum. Um dies zu untersuchen, soll ein
-Vorhersage-Interaktions-Plot bei beiden Variablen auf dem Modell betrachtet werden.
+Vorhersage-Interaktions-Plot der beiden Variablen auf dem Modell betrachtet werden.
 Eine Funktion, um einen solchen Plot zu erstellen, ist im R-Paket
 *randomForestExplainer* enthalten. Allerdings funktioniert diese nicht für
 *ranger*-Objekte, die aus einem *caret::train*-Objekt extrahiert wurden. Daher habe
 ich den Code leicht modifiziert. Die Änderungen befinden sich in den Codezeilen 
-12, 13 und 43 (wobei die Änderung in Zeile 43 nicht zwingend notwendig):
+12, 13 und 44 (wobei die Änderung in Zeile 44 nicht zwingend notwendig ist):
 
 ```{r plot_predict_interaction function, attr.source = ".numberLines", include = TRUE, echo = TRUE, cache = FALSE}
 plot_predict_interaction.caret_ranger <-
@@ -1580,66 +1600,46 @@ am höchsten ist, wenn der *Bilirubin_total*-Wert steigt, während der *EtCO2*-W
 abnimmt.
 
 Die CART-Bäume wurden hauptsächlich mit dem Ziel angepasst, Entscheidungsregeln
-beziehungsweise -pfade abzuleiten. Da aus dem Tuning entstandenen Bäume nur die
-Dauer des Intensivaufenthalts beziehungsweise die Zeit von der Hospitalisierung
+beziehungsweise -pfade abzuleiten. Da die aus dem Tuning entstandenen Bäume nur 
+die Dauer des Intensivaufenthalts beziehungsweise die Zeit von der Hospitalisierung
 bis zur Verlegung auf die Intensivstation abbilden, ist aus ihnen außer den bereits 
-ausgeführten Überlegungen zu diesen Variablen zunächst nicht viel ersichtlich. Die
-Auswertungen der Variablenwichtigkeit und die weiteren generierten
+ausgeführten Überlegungen zu diesen Variablen zunächst nicht viel ersichtlich. 
+Die Auswertungen der Variablenwichtigkeit und die weiteren generierten
 Entscheidungsbäume, denen die jeweilige zuvor stärkste Variable entzogen wurde,
 lassen jedoch vermuten, dass eine erhöhte Körpertemperatur (*Temp*), ein niedriger 
 oder fallender Blutdruck (*MAP*, *DBP*, *SBP*), eine hohe Atemfrequenz (*Resp*)
 sowie eine hohe Herzfrequenz (*HR*) Anzeichen für eine beginnende Sepsis sein 
-können. Dies deckt sich in etwa mit den obligaten Diagnosekriterien nach
-[@Sepsisbuch].
+können. Dies deckt sich in etwa mit den obligaten Diagnosekriterien nach [@Werdan].
 
-[evtl. Zusammenspiel Glukose-, Kalium- und Chloridänderung Medizinische Einordnung?]
+[evtl. Zusammenspiel Glukose-, Kalium- und Chloridänderung sowie Leukos 
+Medizinische Einordnung?]
 
-```{r variable importance plot1, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit CART Baseline"}
-plot(varImp(cart_ds1), top = 20, xlab = "")
+\newpage
+
+```{r variable importance 1, include = TRUE, out.width="250px", fig.show="hold", fig.cap="TOP 20 Variablenwichtigkeit"}
+plot(varImp(cart_ds1), top = 20, xlab = "", main = "CART Baseline")
+plot(varImp(rf_ds1), top = 20, xlab = "", 
+     main = "Random Forest (imputiert) Baseline")
+plot(varImp(rf_nm_ds1), top = min(20, n_var1), xlab = "", 
+     main = "Random Forest (non-missing) Baseline")
+plot(varImp(gbm_ds1), top = 20, xlab = "", main = "GBM Baseline")
+plot(varImp(cart_ds2), top = 20, xlab = "", main = "CART Onset")
+plot(varImp(rf_ds2), top = 20, xlab = "", 
+     main = "Random Forest (imputiert) Onset")
 ```
 
-```{r variable importance plot2, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit CART Onset"}
-plot(varImp(cart_ds2), top = 20, xlab = "")
-```
+\newpage
 
-```{r variable importance plot3, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit CART Regression"}
-plot(varImp(cart_ds3), top = 20, xlab = "")
-```
-
-```{r variable importance plot4, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  Random Forest (imputiert) Baseline"}
-plot(varImp(rf_ds1), top = 20, xlab = "")
-```
-
-```{r variable importance plot5, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit Random Forest (imputiert) Onset"}
-plot(varImp(rf_ds2), top = 20, xlab = "")
-```
-
-```{r variable importance plot6, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  Random Forest (imputiert) Regression"}
-plot(varImp(rf_ds3), top = 20, xlab = "")
-```
-
-```{r variable importance plot7, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit Random Forest (non-missing) Baseline"}
-plot(varImp(rf_nm_ds1), top = min(20, n_var1), xlab = "")
-```
-
-```{r variable importance plot8, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  Random Forest (non-missing) Onset"}
-plot(varImp(rf_nm_ds2), top = min(20, n_var2), xlab = "")
-```
-
-```{r variable importance plot9, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  Random Forest (non-missing) Regression"}
-plot(varImp(rf_nm_ds3), top = min(20, n_var3), xlab = "")
-```
-
-```{r variable importance plot10, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit GBM Baseline"}
-plot(varImp(gbm_ds1), top = 20, xlab = "")
-```
-
-```{r variable importance plot11, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  GBM Onset"}
-plot(varImp(gbm_ds2), top = 20, xlab = "")
-```
-
-```{r variable importance plot12, include = TRUE, fig.cap="TOP 20 Variablenwichtigkeit  GBM Regression"}
-plot(varImp(gbm_ds3), top = 20, xlab = "")
+```{r variable importance 2, include = TRUE, out.width="250px", fig.show="hold", fig.cap="TOP 20 Variablenwichtigkeit (Fortsetzung)"}
+plot(varImp(rf_nm_ds2), top = min(20, n_var2), xlab = "", 
+     main = "Random Forest (non-missing) Onset")
+plot(varImp(gbm_ds2), top = 20, xlab = "", main = "GBM Onset")
+plot(varImp(cart_ds3), top = 20, xlab = "", main = "CART Regression")
+plot(varImp(rf_ds3), top = 20, xlab = "", 
+     main = "Random Forest (imputiert) Regression")
+plot(varImp(rf_nm_ds3), top = min(20, n_var3), xlab = "", 
+     main = "Random Forest (non-missing) Regression")
+plot(varImp(gbm_ds3), top = 20, xlab = "", main = "GBM Regression")
 ```
 
 \newpage
@@ -1648,18 +1648,21 @@ plot(varImp(gbm_ds3), top = 20, xlab = "")
 
 [andere Modelle
 andere Imputationsmethoden und/oder vollständigere Daten
-unabhängige Testdaten]
+unabhängige Testdaten
+reale Zeitscheibe statt zufällige Wahl bei Nicht-Sepsis]
 
 \newpage
 
 # Anhang
 
-Es wurden folgende Pakete und Versionen von R genutzt:
+Diese Arbeit wurde mit "`r sessioninfo::platform_info()$version`" unter Verwendung
+folgender Pakete erstellt:
 
 ```{r session info, include = TRUE, cache = FALSE}
-sessioninfo::platform_info()$version
-subset(data.frame(sessioninfo::package_info()), attached == TRUE, 
-       c(loadedversion))
+knitr::kable(subset(data.frame(sessioninfo::package_info()), 
+                    attached == TRUE, 
+                    c(loadedversion)),
+              col.names = "Version") 
 ```
 
 ```{r vars description, include = TRUE}
