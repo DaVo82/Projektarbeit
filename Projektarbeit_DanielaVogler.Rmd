@@ -32,6 +32,7 @@ header-includes:
   - \hyphenation{Ent-wicklung Event-rate Intensiv-aufent-halts}
   - \floatplacement{figure}{H}
 bibliography: bibliography.bib
+csl: din-1505-2.csl
 fontsize: 12pt
 editor_options: 
   markdown: 
@@ -76,7 +77,7 @@ library(randomForestExplainer)
 Eine Sepsis ist eine sehr ernste gesundheitliche Komplikation, insbesondere auf 
 Intensivstationen. Die Sterblichkeitsrate liegt bei etwa 30-50 %. Zudem entstehen 
 jährlich Behandlungskosten in Höhe von mehreren Milliarden Euro alleine in 
-Deutschland [@Dennler].
+Deutschland [@Fleischmann].
 \newline
 Eine frühzeitige Erkennung und damit einhergehend eine rechtzeitige Therapie gelten
 als wichtigste Mittel zur Verbesserung der Überlebensrate. Jedoch sind die Symptome
@@ -104,7 +105,7 @@ eines Intensivpatienten vorherzusagen, ob dieser an einer Sepsis erkranken wird
 bzw. bereits unerkannt erkrankt ist?
 
 Die verwendeten Daten stammen aus dem unter *Open Database License (ODbL)* 
-verfügbaren Kaggle-Datensatz *Dataset.csv* [@KaggleData; @Physionet]. 
+verfügbaren Kaggle-Datensatz *Dataset.csv* [@Binitagiri; @Reyna]. 
 
 \newpage
 
@@ -154,7 +155,7 @@ wobei Ausbrüche innerhalb weniger als vier Stunden aus den Daten entfernt wurde
 Als Ausbruch gilt das Auftreten eines Organversagens gemäß Sequential Organ Failure
 Assessment (SOFA) oder ein klinischer Verdacht, der sich in einer intravenösen
 Antibiotikagabe und dem Anlegen von Blutkulturen widerspiegelt. Zu den Details 
-siehe [@Physionet].
+siehe [@Reyna].
 
 ```{r data structure}
 summary(data_sample)
@@ -281,7 +282,7 @@ data_sample %>%
 
 Hämoglobin- und Hämatokrit-Wert entsprechen einander ungefähr, weil die
 Erythrozyten den Großteil des Gesamtvolumens der Blutzellen ausmachen
-[@Haematokrit]. Ich entscheide daher auch hier nach Vollständigkeit der
+[@BMSGPK]. Ich entscheide daher auch hier nach Vollständigkeit der
 Beobachtungen und entferne die Variable *Hgb* aus dem Datensatz.
 
 ```{r variable selection}
@@ -529,7 +530,7 @@ Es wird eine 5-fache Kreuzvalidierung und aufgrund der sehr unausgewogenen Daten
   digits = 1),
   decimal.mark = ",", big.mark = ".")` %) ein Upsampling vorgenommen.
 
-Bei der Wahl der Evaluierungsmetrik ist zu berücksichtigen, dass sowohl
+Bei der Wahl der Evaluationsmetrik ist zu berücksichtigen, dass sowohl
 Sensitivität als auch Spezifität eine hohe Relevanz für die Fragestellung haben. 
 Je höher die Sensitivität, desto mehr Patienten können frühzeitig behandelt
 werden, je niedriger die Spezifität, desto mehr Patienten werden möglicherweise
@@ -576,10 +577,11 @@ cart_ds1 <- train(x = train1[,4:41],
                   trControl = ctrl)
 ```
 
-Als bestes Modell ergibt sich: `r knitr::kable(cart_ds1$bestTune)`
+Als bestes Modell ergibt sich: 
+`r knitr::kable(cart_ds1$bestTune, row.names = FALSE)`
 
 ```{r cart model results ds1, include = TRUE, fig.cap="\\label{cart_ds1}Entscheidungsbaum Baseline-Datensatz"}
-rpart.plot(cart_ds1$finalModel, type = 5)
+rpart.plot(cart_ds1$finalModel, type = 5, box.palette = "RdBu")
 ```
 
 Dass die Zeitspanne zwischen Krankenhausaufnahme und Verlegung auf die ITS
@@ -603,7 +605,7 @@ cart_adj_ds1 <- prune(cart_adj_ds1$finalModel, cp = 0.02)
 ```
 
 ```{r cart model adjusted results ds1, include = TRUE, fig.cap="Entscheidungsbaum Baseline-Datensatz angepasst"}
-rpart.plot(cart_adj_ds1, type = 5)
+rpart.plot(cart_adj_ds1, type = 5, box.palette = "RdBu")
 ```
 
 ```{r cart model test ds1}
@@ -644,7 +646,8 @@ rf_ds1 <- train(x = ds1_imputed[,4:41],
                 trControl = ctrl)
 ```
 
-Als bestes Modell ergibt sich: `r knitr::kable(rf_ds1$bestTune)`
+Als bestes Modell ergibt sich: 
+`r knitr::kable(rf_ds1$bestTune, row.names = FALSE)`
 
 ```{r rf model test ds1}
 # Testdaten werden nicht automatisch imputiert
@@ -690,7 +693,8 @@ rf_nm_ds1 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
                   trControl = ctrl)
 ``` 
 
-Das beste Modell ist: `r knitr::kable(rf_nm_ds1$bestTune)`
+Das beste Modell ist: 
+`r knitr::kable(rf_nm_ds1$bestTune, row.names = FALSE)`
 
 ```{r rf non-missing test ds1}
 # Vorhersagen nur für vollständige Beobachtungen
@@ -735,7 +739,7 @@ gbm_ds1 <- train(x = train1[,4:41],
 ```
 
 Das beste Modell ergibt sich mit folgenden Parametern:
-`r knitr::kable(gbm_ds1$bestTune)`
+`r knitr::kable(gbm_ds1$bestTune, row.names = FALSE)`
 
 ```{r gbm model test ds1}
 pred_gbm_ds1 <- predict(gbm_ds1, test1)
@@ -761,10 +765,10 @@ cart_ds2 <- train(x = train2[,4:41],
 ```
 
 Aus dem CART-Algorithmus ergibt sich das beste Modell mit: 
-`r knitr::kable(cart_ds2$bestTune)`
+`r knitr::kable(cart_ds2$bestTune, row.names = FALSE)`
 
 ```{r cart model results ds2, include = TRUE, fig.cap="\\label{cart_ds2}Entscheidungsbaum Onset-Datensatz"}
-rpart.plot(cart_ds2$finalModel, type = 5)
+rpart.plot(cart_ds2$finalModel, type = 5, box.palette = "RdBu")
 ```
 
 Ähnlich wie beim Baseline-Ansatz wird hier nur eine Prädiktorvariable verwendet - in diesem Fall die Länge des Intensivaufenthalts (*ICULOS*). Analog zum Vorgehen im
@@ -782,7 +786,7 @@ cart_adj_ds2 <- train(x = train2[,4:40],
 ```
 
 ```{r cart model adjusted results ds2, include = TRUE, fig.cap="Entscheidungsbaum Onset-Datensatz angepasst"}
-rpart.plot(cart_adj_ds2$finalModel, type = 5)
+rpart.plot(cart_adj_ds2$finalModel, type = 5, box.palette = "RdBu")
 ```
 
 ```{r cart model test ds2}
@@ -812,7 +816,8 @@ rf_ds2 <- train(x = ds2_imputed[,4:41],
                 trControl = ctrl)
 ```
 
-Das beste Modell ist: `r knitr::kable(rf_ds2$bestTune)`
+Das beste Modell ist: 
+`r knitr::kable(rf_ds2$bestTune, row.names = FALSE)`
 
 ```{r rf model test ds2}
 # Testdaten werden nicht automatisch imputiert
@@ -855,7 +860,8 @@ rf_nm_ds2 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
                   trControl = ctrl)
 ```
 
-Das beste Modell ist: `r knitr::kable(rf_nm_ds2$bestTune)`
+Das beste Modell ist: 
+`r knitr::kable(rf_nm_ds2$bestTune, row.names = FALSE)`
 
 ```{r rf non-missing test ds2}
 # Vorhersagen nur für vollständige Beobachtungen
@@ -882,7 +888,7 @@ gbm_ds2 <- train(x = train2[,4:41],
                  verbose = FALSE)
 ```
 
- `r knitr::kable(gbm_ds2$bestTune)`
+ `r knitr::kable(gbm_ds2$bestTune, row.names = FALSE)`
 
 ```{r gbm model test ds2}
 pred_gbm_ds2 <- predict(gbm_ds2, test2)
@@ -905,10 +911,10 @@ cart_ds3 <- train(x = train3[,3:40],
                   trControl = ctrl)
 ```
 
- `r knitr::kable(cart_ds3$bestTune)`
+ `r knitr::kable(cart_ds3$bestTune, row.names = FALSE)`
 
 ```{r cart model results ds3, include = TRUE, fig.cap="\\label{cart_ds3}Entscheidungsbaum Regressionsdatensatz"}
-rpart.plot(cart_ds3$finalModel, type = 5)
+rpart.plot(cart_ds3$finalModel, type = 5, box.palette = "RdBu")
 ```
 
 Wiederum wird im finalen Modell nur die Dauer des Intensivaufenthalts als
@@ -926,7 +932,7 @@ cart_adj_ds3 <- train(x = train3[,-c(1,2,8)],
 ```
 
 ```{r cart model adjusted results ds3, include = TRUE, fig.cap="Entscheidungsbaum Regressionsdatensatz angepasst"}
-rpart.plot(cart_adj_ds3$finalModel, type = 5)
+rpart.plot(cart_adj_ds3$finalModel, type = 5, box.palette = "RdBu")
 ```
 
 ```{r cart model test ds3}
@@ -955,7 +961,7 @@ rf_ds3 <- train(x = ds3_imputed[,3:40],
                 trControl = ctrl)
 ```
 
-`r knitr::kable(rf_ds3$bestTune)`
+`r knitr::kable(rf_ds3$bestTune, row.names = FALSE)`
 
 ```{r rf model test ds3}
 # Testdaten werden nicht automatisch imputiert
@@ -998,7 +1004,7 @@ rf_nm_ds3 <- train(Sepsis ~ . - Patient_ID - Sepsis,
                   trControl = ctrl)
 ```
 
-`r knitr::kable(rf_nm_ds3$bestTune)`
+`r knitr::kable(rf_nm_ds3$bestTune, row.names = FALSE)`
 
 ```{r rf non-missing test ds3}
 # Vorhersagen nur für vollständige Beobachtungen
@@ -1025,7 +1031,7 @@ gbm_ds3 <- train(x = train3[,3:40],
                  verbose = FALSE)
 ```
 
-`r knitr::kable(gbm_ds3$bestTune)`
+`r knitr::kable(gbm_ds3$bestTune, row.names = FALSE)`
 
 ```{r gbm model test ds3}
 pred_gbm_ds3 <- predict(gbm_ds3, test3)
@@ -1061,7 +1067,7 @@ Splitvariable aus der Betrachtung entfernt wurde, werden nicht mit einbezogen,
 da sie weniger der Verbesserung der Vorhersagequalität als vielmehr der Beurteilung
 relevanter Kriterien dienen sollen.
 
-```{r resamples F statistics, include = TRUE}
+```{r resamples F statistics, include = TRUE, cache = FALSE}
 knitr::kable(summary(results)$statistics$F, 
              booktabs = T, 
              caption = "F-Metrik") %>%
@@ -1069,7 +1075,7 @@ knitr::kable(summary(results)$statistics$F,
                 position = "center")
 ```
 
-```{r resamples AUC statistics, include = TRUE}
+```{r resamples AUC statistics, include = TRUE, cache = FALSE}
 knitr::kable(summary(results)$statistics$AUC, 
              booktabs = T, 
              caption = "AUC") %>%
@@ -1077,7 +1083,7 @@ knitr::kable(summary(results)$statistics$AUC,
                 position = "center")
 ```
 
-```{r resamples precision statistics, include = TRUE}
+```{r resamples precision statistics, include = TRUE, cache = FALSE}
 knitr::kable(summary(results)$statistics$Precision, 
              booktabs = T, 
              caption  = "Precision") %>%
@@ -1085,7 +1091,7 @@ knitr::kable(summary(results)$statistics$Precision,
                 position = "center")
 ```
 
-```{r resamples recall statistics, include = TRUE}
+```{r resamples recall statistics, include = TRUE, cache = FALSE}
 knitr::kable(summary(results)$statistics$Recall, 
              booktabs = T, 
              caption  = "Recall") %>%
@@ -1110,10 +1116,10 @@ der Werte eingehen. Unerwartet kommt hingegen das bessere Abschneiden des einzel
 Entscheidungsbaumes gegenüber den Random Forests. Allerdings ist der Unterschied 
 zwischen dem Entscheidungsbaum und dem Random Forest nach Imputation auf dem 
 Regressionsdatensatz sehr gering (Differenz der mittleren F1-Metrik 
-`r prettyNum(round(summary(results)$statistics$F[3,4] -
-                   summary(results)$statistics$F[9,4], 
-                   4),
-            decimal.mark = ",")`). 
+`r prettyNum(round(summary(results)$statistics$F[9,4] -
+                  summary(results)$statistics$F[10,4], 
+                3),
+          decimal.mark = ",")`). 
 Außerdem kommt hier sicherlich die Stärke des CART-Algorithmus im Umgang mit
 fehlenden Werten durch die Verwendung von Surrogate Splits zum Tragen. Insbesondere
 bei Vorliegen eines MNAR-Mechanismus, der hier wie weiter oben erläutert nicht
@@ -1130,7 +1136,8 @@ ein ähnliches Bild. Der deutlichste Unterschied besteht im Ranking des CART-Mod
 des Regressionsdatensatzes. Dieses fällt von Platz 2 auf Platz 8. Hier wirkt sich 
 aus, dass die Präzision im Vergleich zu den anderen Modellen eher schlecht, der 
 Recall aber sehr gut ist (mit 
-`r prettyNum(round(summary(results)$statistics$Recall[3,4], 3), decimal.mark = ",")`
+`r prettyNum(round(summary(results)$statistics$Recall[9,4], 3), 
+            decimal.mark = ",")`
 der zweitbeste Wert).
 
 Für eine klinische Anwendung empfiehlt sich demzufolge von den untersuchten Modellen
@@ -1154,12 +1161,12 @@ Modelle am besten geeignet sind.
 Von einer Verwendung des Baseline-Datensatzes ist grundsätzlich abzuraten, da 
 keines der evaluierten Modelle eine befriedigende Performance zeigt (bestes Modell
 GBM mit F1 = 
-`r prettyNum(round(summary(results)$statistics$F[10,4], 3), decimal.mark = ",")`,
+`r prettyNum(round(summary(results)$statistics$F[4,4], 3), decimal.mark = ",")`,
 Precision = 
-`r prettyNum(round(summary(results)$statistics$Precision[10,4], 3), 
+`r prettyNum(round(summary(results)$statistics$Precision[4,4], 3), 
             decimal.mark = ",")` 
 und Recall = 
-`r prettyNum(round(summary(results)$statistics$Recall[10,4], 3), 
+`r prettyNum(round(summary(results)$statistics$Recall[4,4], 3), 
              decimal.mark = ",")`).
 
 Idealerweise würde man die Modelle nun an einem komplett unabhängigen Testdatensatz
@@ -1178,6 +1185,8 @@ binary_visualiseR(train_labels = pred_cart_ds1,
                                truth_labels = test1$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "CART",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1191,6 +1200,8 @@ binary_visualiseR(train_labels = pred_rf_ds1,
                                truth_labels = test1$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "Random Forest (imputiert)",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1207,6 +1218,8 @@ binary_visualiseR(train_labels = pred_rf_nm_ds1,
                                truth_labels = test1_2$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "Random Forest (non-missing)",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1219,6 +1232,8 @@ binary_visualiseR(train_labels = pred_gbm_ds1,
                                truth_labels = test1$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "GBM",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1231,6 +1246,8 @@ binary_visualiseR(train_labels = pred_cart_ds2,
                                truth_labels = test2$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "CART",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1244,6 +1261,8 @@ binary_visualiseR(train_labels = pred_rf_ds2,
                                truth_labels = test2$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "Random Forest (imputiert)",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1260,6 +1279,8 @@ binary_visualiseR(train_labels = pred_rf_nm_ds2,
                                truth_labels = test2_2$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "Random Forest (non-missing)",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1272,6 +1293,8 @@ binary_visualiseR(train_labels = pred_gbm_ds2,
                                truth_labels = test2$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "GBM",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1284,6 +1307,8 @@ binary_visualiseR(train_labels = pred_cart_ds3,
                                truth_labels = test3$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "CART",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1297,6 +1322,8 @@ binary_visualiseR(train_labels = pred_rf_ds3,
                                truth_labels = test3$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "Random Forest (imputiert)",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1313,6 +1340,8 @@ binary_visualiseR(train_labels = pred_rf_nm_ds3,
                                truth_labels = test3_2$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "Random Forest (non-missing)",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1325,6 +1354,8 @@ binary_visualiseR(train_labels = pred_gbm_ds3,
                                truth_labels = test3$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
+                               quadrant_col1 = "#E5826D",
+                               quadrant_col2 = "#578C99",
                                custom_title = "GBM",
                                info_box_title = "Statistik",
                                text_col = "black")
@@ -1375,8 +1406,8 @@ verstanden werden. Aufgrund des binären Outcomes wäre eine Sensitivität von e
 Vorgehen zu einer Spezifität von ebenfalls nur ca. 50 % führen. Wir können also
 festhalten, dass ein Modell erfolgreich ist, wenn es eine Sensitivität von deutlich
 über 0 bei gleichzeitig "hoher" Spezifität erreicht. Die Frage, wann die Spezifität
-hoch genug ist, lässt sich nicht eindeutig beantworten. Ein entsprechender Grenzwert
-sollte daher in jeder Anwendungssituation individuell mit den beteiligten
+hoch genug ist, lässt sich nicht eindeutig beantworten. Ein entsprechender
+Grenzwert sollte daher in jeder Anwendungssituation individuell mit den beteiligten
 Fachspezialisten festgelegt werden. Als Mindestanforderung sollte aber gelten, dass
 die Zahl der richtig positiven Ergebnisse (TP) höher als die der falsch positiven
 (FP) ist, d. h. dass mehr Patienten frühzeitig einer tatsächlich notwendigen
@@ -1426,16 +1457,16 @@ Sepsis zu entwickeln, steigt, wenn ein Intensivaufenthalt länger als etwa 2,5 T
 andauert. Und auch innerhalb der ersten 20 Stunden (*ICULOS* < 14 plus sechs 
 Stunden vom Label bis zur Diagnose) scheint eine Sepsisdiagnose wahrscheinlich.
 Vermutlich handelt es sich hierbei um Patienten, die bereits mit einer Sepsis auf
-die Intensivstation kommen, jedoch noch nicht notwendigerweise diagnostiziert sind, 
-während die zuerst genannte Gruppe die Sepsis erst auf der ITS erwirbt. Dennoch 
-muss der Intensivaufenthalt nicht notwendigerweise kausal für die Erkrankung sein. 
-Möglich ist zum Beispiel auch, dass Personen mit einem längeren Intensivaufenthalt 
-schwerer krank und somit in einem schlechteren Allgemeinzustand sind, der das 
-Entstehen einer Sepsis begünstigt. Ähnlich könnte auch Abbildung \ref{cart_ds1}
-interpretiert werden: Wer sehr schnell (innerhalb der ersten eineinhalb Stunden)
-oder erst spät (nach mehr als 45 Stunden) auf die ITS verlegt wurde, ist in einem
-schlechteren Zustand als die übrigen Intensivpatienten und hat möglicherweise 
-deshalb ein höheres Sepsisrisiko.
+die Intensivstation kommen, jedoch noch nicht notwendigerweise diagnostiziert sind,
+während die zuerst genannte Gruppe die Sepsis erst auf der Intensivstation erwirbt.
+Dennoch muss der Intensivaufenthalt nicht notwendigerweise kausal für die
+Erkrankung sein. Möglich ist zum Beispiel auch, dass Personen mit einem längeren
+Intensivaufenthalt schwerer krank und somit in einem schlechteren Allgemeinzustand
+sind, der das Entstehen einer Sepsis begünstigt. Ähnlich könnte auch Abbildung
+\ref{cart_ds1} interpretiert werden: Wer sehr schnell (innerhalb der ersten
+eineinhalb Stunden) oder erst spät (nach mehr als 45 Stunden) auf die
+Intensivstation verlegt wurde, ist in einem schlechteren Zustand als die übrigen
+Intensivpatienten und hat möglicherweise deshalb ein höheres Sepsisrisiko.
 
 Die große Bedeutung der beiden Prädiktoren kann auch stark davon beinflusst sein,
 dass es sich um zwei von insgesamt nur vier (zusammen mit Alter und Geschlecht) 
@@ -1455,7 +1486,7 @@ andere Modell von *ICULOS* dominiert. Kein anderer Prädiktor erreicht einen Sco
 sinnvolle Interpretation einzelner Bäume der GBM ist aufgrund des iterativen 
 Aufbaus des Algorithmus kaum möglich. Insgesamt lässt sich daher nur sagen, dass
 eine große Bandbreite an Prädiktoren Verwendung findet, der Dauer des Aufenthalts
-auf der ITS aber die mit Abstand größte Bedeutung zukommt.
+auf der Intensivstation aber die mit Abstand größte Bedeutung zukommt.
 
 Bei dem auf  dem Tetsdatensatz wegen seiner sehr hohen Spezifität positiv
 aufgefallenen Modell, dem Random Forest nach Imputation auf dem
@@ -1483,7 +1514,7 @@ Eine Funktion, um einen solchen Plot zu erstellen, ist im R-Paket
 ich den Code leicht modifiziert. Die Änderungen befinden sich in den Codezeilen 
 12, 13 und 44 (wobei die Änderung in Zeile 44 nicht zwingend notwendig ist):
 
-```{r plot_predict_interaction function, attr.source = ".numberLines", include = TRUE, echo = TRUE, cache = FALSE}
+```{r plot_predict_interaction function, attr.source = ".numberLines", include = TRUE, echo = TRUE}
 plot_predict_interaction.caret_ranger <-
 function(forest, data, variable1, variable2, grid = 100, 
           main = paste0("Prediction of the forest for different values of ", 
@@ -1602,7 +1633,7 @@ abnimmt.
 Die CART-Bäume wurden hauptsächlich mit dem Ziel angepasst, Entscheidungsregeln
 beziehungsweise -pfade abzuleiten. Da die aus dem Tuning entstandenen Bäume nur 
 die Dauer des Intensivaufenthalts beziehungsweise die Zeit von der Hospitalisierung
-bis zur Verlegung auf die Intensivstation abbilden, ist aus ihnen außer den bereits 
+bis zur Verlegung auf die Intensivstation abbilden, ist aus ihnen außer den bereits
 ausgeführten Überlegungen zu diesen Variablen zunächst nicht viel ersichtlich. 
 Die Auswertungen der Variablenwichtigkeit und die weiteren generierten
 Entscheidungsbäume, denen die jeweilige zuvor stärkste Variable entzogen wurde,
@@ -1646,10 +1677,58 @@ plot(varImp(gbm_ds3), top = 20, xlab = "", main = "GBM Regression")
 
 # Zusammenfassung und Ausblick
 
-[andere Modelle
-andere Imputationsmethoden und/oder vollständigere Daten
-unabhängige Testdaten
-reale Zeitscheibe statt zufällige Wahl bei Nicht-Sepsis]
+Wir haben gesehen, dass es sich für eine Sepsisprädiktion anbietet, Blutwerte 
+und Vitalparameter aus einem Behandlungsintervall zu berücksichtigen, anstatt nur
+Werte zu einem bestimmten Zeitpunkt zu verwenden. Dies kann durch die Betrachtung
+der Veränderung dieser Werte in Form von Slopes einer patientenindividuellen
+linearen Regression erfolgen.
+
+Mit diesem Ansatz haben alle untersuchten Modelle (CART-Entscheidungsbaum, Random
+Forest und Gradient Boosting Machine) ähnliche Ergebnisse hinsichtlich der
+F1-Metrik erreicht. Lediglich hinsichtlich der Präzision ist der CART-Algorithmus
+deutlich schlechter.
+\newline
+Als erfolgversprechendste Modelle für eine weitere Erprobung ergeben sich die
+Gradient Boosting Machine und die Random Forests in Verbindung mit dem
+beschriebenen Regressionsansatz. Sie haben auf den Testdaten akzeptable
+Sensitivitäten zwischen 30 und 55 % und sehr gute Spezifitäten von 98 bis 99,9 %
+erreicht.
+
+Hinsichtlich der Frage nach der Ableitbarkeit von Entscheidungsregeln zur nicht
+maschinellen Unterstützung der ärztlichen Entscheidungsfindung konnten keine
+belastbaren Ergebnisse erzielt werden. Die Splitregeln der Entscheidungsbäume
+stützen sich sehr stark auf die Dauer des Intensivaufenthalts, was in dieser
+Hinsicht nicht genügend weiterhilft.
+
+Bevor ein klinischer Einsatz der Vorhersagemodelle in Betracht gezogen werden 
+kann, müssten die infrage kommenden Modelle nun auf verschiedenen Datensätzen aus
+unterschiedlichen Quellen getestet werden, um zu beurteilen, wie gut sich die
+Ergebnisse verallgemeinern lassen. Insbesondere die Problematik fehlender Werte
+könnte sich auf verschiedenen Datensätzen sehr unterschiedlich auswirken und vor
+allem die Random Forests stark beeinflussen.
+\newline
+Interessant wäre hierbei auch, die Daten mehrfach zu zuvor festgelegten 
+Zeitpunkten zu exportieren und bis zu diesem Stand zu analysieren, sodass die 
+Notwendigkeit entfällt, wie in dieser Arbeit das Ende des Beobachtungszeitraums
+für die Nicht-Sepsispatienten zufällig zu wählen.
+
+Unabhängig davon, wie gut sich die Modelle verallgemeinern lassen, ist eine 
+weitere Verbesserung der Sensitivität, ohne dass es zu einer deutlichen
+Verschlechterung der Spezifität oder Präzision kommt, erstrebenswert. Zu diesem
+Zweck sollten weitere Strategien zum Umgang mit fehlenden Werten erprobt werden - 
+zum Beispiel multiple Imputation, aber möglichst auch die Erhöhung des Füllgrads 
+zumindest einiger Prädiktoren (beispielsweise im Rahmen von Kooperationen).
+\newline
+Außerdem ist die Wahl der Evaluationsmetrik eine wichtige Stellschraube, die  
+noch weitere Möglichkeiten bietet, zum Beispiel die Verwendung einer
+verallgemeinerten F-Metrik oder gar die Implementierung eines ganz individuell 
+auf die Fragestellung angepassten Evaluationsmaßes.
+\newline
+Und letztlich gibt es viele weitere Modelle, die grundsätzlich zur binären
+Klassifikation geeignet sind und möglicherweise einen wesentlichen Beitrag zu dem
+untersuchten Thema leisten können. Dies reicht von anderen Boosting-Algorithmen 
+bis hin zu verschiedenen nicht baumbasierten Verfahren wie beispielsweise
+neuronalen Netzen.
 
 \newpage
 
