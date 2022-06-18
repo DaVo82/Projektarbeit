@@ -29,7 +29,8 @@ header-includes:
   - \usepackage{makecell}
   - \usepackage{xcolor}
   - \usepackage{hyphenat}
-  - \hyphenation{Ent-wicklung Event-rate Intensiv-aufent-halts}
+  - \hyphenation{Ent-wicklung Event-rate Intensiv-aufent-halts er-reicht
+        Intensiv-station}
   - \floatplacement{figure}{H}
 bibliography: bibliography.bib
 csl: din-1505-2.csl
@@ -95,14 +96,17 @@ Entscheidungen ableitbar sind.
 
 Die bearbeitete Fragestellung lässt sich wie folgt zusammenfassen: 
 \newline
-1. Welche Entscheidungskriterien hinsichtlich einer Klassifikation von
+1. Welche Entscheidungskriterien hinsichtlich einer Klassifizierung von
 Intensivpatienten in die Kategorien "wird eine Sepsis entwickeln" und "wird keine
 Sepsis entwickeln" lassen sich mittels einzelner Entscheidungsbäume ableiten?
 \newline
-2. Welches Modell aus dem Bereich der baumbasierten Ensemblemethoden ist am 
-besten geeignet, um aus demografischen Daten, Blutwerten und Vitalparametern 
-eines Intensivpatienten vorherzusagen, ob dieser an einer Sepsis erkranken wird
-bzw. bereits unerkannt erkrankt ist?
+2. Welches baumbasierte Modell ist am besten geeignet, um aus demografischen 
+Daten, Blutwerten und Vitalparametern eines Intensivpatienten vorherzusagen, ob
+dieser zeitnah an einer Sepsis erkranken wird beziehungsweise bereits unerkannt
+erkrankt ist?
+\newline
+Hierfür werden exemplarisch CARTs (Entscheidungsbäume), Random Forests (Bagging)
+und GBMs (Boosting) untersucht.
 
 Die verwendeten Daten stammen aus dem unter *Open Database License (ODbL)* 
 verfügbaren Kaggle-Datensatz *Dataset.csv* [@Binitagiri; @Reyna]. 
@@ -180,15 +184,15 @@ daher zwischen 0 und 1 liegen. Werte außerhalb dieses Bereichs wurden daher
 entfernt.
 
 2. *HospAdmTime*, die Zeit zwischen Hospitalisierung und Verlegung auf die 
-Intensivstation, ist je nach Berechnung entweder positiv oder negativ, kann aber
-nicht sowohl positive als auch negative Werte annehmen, da niemand auf die 
-Intensivstation verlegt werden kann, bevor er überhaupt im Krankenhaus ist. Es 
-ist daher naheliegend, dass unterschiedliche Berechnungen 
-(Aufnahmezeitpunkt_gesamt - Aufnahmezeitpunkt_Intensiv und 
-Aufnahmezeitpunkt_Intensiv - Aufnahmezeitpunkt_gesamt) vorgenomen worden. Hier
-wurde auf positive Vorzeichen vereinheitlicht, da diese für die Interpretation 
-geeigneter sind ("Zeit, die zwischen Aufnahme im Krankenhaus und Aufnahme auf der 
-ITS vergangen ist").
+Intensivstation (ITS), ist je nach Berechnung entweder positiv oder negativ, 
+kann aber nicht sowohl positive als auch negative Werte annehmen, da niemand auf
+die Intensivstation verlegt werden kann, bevor er überhaupt im Krankenhaus ist.
+Es ist daher naheliegend, dass unterschiedliche Berechnungen 
+(Aufnahmezeitpunkt_gesamt - Aufnahmezeitpunkt_Intensiv und
+Aufnahmezeitpunkt_Intensiv - Aufnahmezeitpunkt_gesamt) vorgenomen wurden. 
+Hier wurde auf positive Vorzeichen vereinheitlicht, da diese für die 
+Interpretation geeigneter sind ("Zeit, die zwischen Aufnahme im Krankenhaus und
+Aufnahme auf der ITS vergangen ist").
 
 ```{r data cleaning}
 data_sample %>%
@@ -241,11 +245,11 @@ Baumbasierte Methoden funktionieren auch bei starker Multikollinearität gut, da
 sukzessive einzelne Variablen für die Splits herangezogen werden. Liefert eine 
 Variable keinen oder kaum Informationsgewinn, weil sie stark mit einer vorher 
 bereits zum Split genutzten Variable korreliert, wird sie nicht verwendet. Daher
-müssen stark korrelierte Prädiktoren nicht unbedingt von der Analyse
+müssen stark korrelierende Prädiktoren nicht unbedingt von der Analyse
 ausgeschlossen werden. Allerdings sollten starke Kollinearitäten später bei der
 Interpretation der Entscheidungskriterien berücksichtigt werden. Es ist möglich,
 dass nicht die eigentlich relevante Variable für einen Split herangezogen wird,
-sondern eine, die stark mit ihr korreliert ist.
+sondern eine stark mit ihr korrelierende.
 
 Bei Variablen mit vollständigen linearen Zusammenhang 
 (Korrelationskoeffizient +/- 1) ist eine Variablenselektion aber auf jeden Fall
@@ -282,8 +286,8 @@ data_sample %>%
 
 Hämoglobin- und Hämatokrit-Wert entsprechen einander ungefähr, weil die
 Erythrozyten den Großteil des Gesamtvolumens der Blutzellen ausmachen
-[@BMSGPK]. Ich entscheide daher auch hier nach Vollständigkeit der
-Beobachtungen und entferne die Variable *Hgb* aus dem Datensatz.
+[@BMSGPK]. Auch hier wird daher nach Vollständigkeit der Beobachtungen entschieden
+und die Variable *Hgb* aus dem Datensatz entfernt.
 
 ```{r variable selection}
 data_sample <- data_sample %>% 
@@ -361,7 +365,7 @@ Missing At Random (MAR) voraus. Es ist anzunehmen, dass im vorliegenden Datensat
 tatsächlich einige Werte nur deshalb fehlen, weil bestimmte Messungen unabhängig
 vom Gesundheitszustand des Patienten nur zu bestimmten Zeiten beziehungsweise in
 größeren Abständen vorgenommen werden. Es ist aber auch durchaus wahrscheinlich,
-dass bestimmte Messungen (insbesondere die Bestimmung spezieller Blutwerte) nur 
+dass manche Messungen (insbesondere die Bestimmung spezieller Blutwerte) nur 
 bei Vorliegen konkreter Verdachtsmomente erfolgen und somit ein Zusammenhang des
 Fehlens mit dem tatsächlichen Wert (und eventuell auch mit der Wahrscheinlichkeit
 einer Sepsis) besteht. Ursachenforschung gemeinsam mit den ärztlichen und
@@ -372,11 +376,10 @@ die jeweiligen Modelle erforderlich, zwei Vorgehensweisen miteinander verglichen
 - eine Analyse vollständiger Fälle (nach Einschränkung auf relativ gut gefüllte
 Variablen) und eine Imputation mit der im R-Paket *randomForest* implementierten 
 Methode nach Breiman, die fehlende Werte iterativ anhand von Proximity-Matrizen
-in Random Forests konstruiert [@Breiman]. Auf multiple Imputation wird hier 
-verzichtet, um den gezielt verkleinerten Datensatz nicht wieder erheblich zu 
-vergrößern. Dennoch ist festzuhalten, dass multiple Imputation eine mögliche
-Alternative darstellt, die hinsichtlich einer eventuellen Verzerrung Vorteile
-aufweist.
+in Random Forests konstruiert [@Breiman]. Auf multiple Imputation wird verzichtet,
+um den gezielt verkleinerten Datensatz nicht wieder erheblich zu vergrößern.
+Dennoch ist festzuhalten, dass multiple Imputation eine mögliche Alternative
+darstellt, die hinsichtlich einer eventuellen Verzerrung Vorteile aufweist.
 
 Zum anderen müssen die longitudinalen Daten für die Anwendung baumbasierter 
 Verfahren zu je einer Beobachtung pro Patient zusammengefasst werden. Dazu werden 
@@ -394,20 +397,20 @@ Beginn der Intensivbehandlung bzw. zum erstmöglichen Zeitpunkt.
 Outcome gelabelte Beobachtung verwendet. Für Nicht-Sepsispatienten wird eine 
 Beobachtung zufällig ausgewählt, da nicht bekannt ist, wann ein solcher Patient 
 der Entwicklung einer Sepsis am nächsten war.
-\newline Dieser Ansatz simuliert eine regelmäßige Klassifikation liegender 
+\newline Dieser Ansatz simuliert eine regelmäßige Klassifizierung liegender 
 Intensivpatienten anhand ihrer jeweils aktuellen klinischen Parameter.
 
 **3. Regressionsdatensatz:** Für jeden Patienten wird mittels linearer Regression 
-die Entwicklung jeder Prädiktorvariable modelliert und der patientenindividuelle
-Slope als Prädiktor verwendet. Dabei wird für Nicht-Sepsispatienten der gesamte
-Beobachtungszeitraum einbezogen und für Sepsispatienten der Zeitraum bis zum 
-ersten positiven Outcome.
-\newline Dies entspricht einer regelmäßigen Klassifikation der Patienten anhand 
+die Entwicklung jeder zeitabhängigen Prädiktorvariable modelliert und der
+patientenindividuelle Slope als Prädiktor verwendet. Dabei wird für
+Nicht-Sepsispatienten der gesamte Beobachtungszeitraum einbezogen und für
+Sepsispatienten der Zeitraum bis zum ersten positiven Outcome.
+\newline Dies entspricht einer regelmäßigen Klassifizierung der Patienten anhand 
 aller ihrer bis dahin vorliegenden Parameter.
 
 Die drei entstandenen Datensätze werden anschließend jeweils in einen Trainings-
-und Validierungsdatensatz mit 75% der Beobachtungen und einen Testdatensatz mit
-den restlichen 25% der Beobachtungen aufgeteilt.
+und Validierungsdatensatz mit 75 % der Beobachtungen und einen Testdatensatz mit
+den restlichen 25 % der Beobachtungen aufgeteilt.
 
 ```{r creating baseline dataset}
 # Es sollen die Messwerte zur Stunde 1 verwendet werden, aber für den Outcome
@@ -562,7 +565,7 @@ ctrl <- trainControl(method = "cv", number = 5,
 ## Der Baseline-Ansatz
 
 Es wird ein Entscheidungsbaum mit dem CART-Algorithmus (R-Paket *rpart*) erstellt.
-Da CART mit fehlenden Werten mittels Surrogate-Splits automatisch umgehen kann,
+Da CART mit fehlenden Werten mittels Surrogate Splits automatisch umgehen kann,
 ist kein Preprocessing notwendig. Das Tuning erfolgt mittels der
 *caret*-Standardeinstellungen, d. h. es wird ein Tunegrid der Länge drei für den
 Complexity-Parameter (*cp*) basierend auf der *rpart*-Implementierung verwendet.
@@ -577,7 +580,7 @@ cart_ds1 <- train(x = train1[,4:41],
                   trControl = ctrl)
 ```
 
-Als bestes Modell ergibt sich: 
+Das beste Modell ergibt sich mit: 
 `r knitr::kable(cart_ds1$bestTune, row.names = FALSE)`
 
 ```{r cart model results ds1, include = TRUE, fig.cap="\\label{cart_ds1}Entscheidungsbaum Baseline-Datensatz"}
@@ -646,7 +649,7 @@ rf_ds1 <- train(x = ds1_imputed[,4:41],
                 trControl = ctrl)
 ```
 
-Als bestes Modell ergibt sich: 
+Das beste Modell hat folgende Parameter:
 `r knitr::kable(rf_ds1$bestTune, row.names = FALSE)`
 
 ```{r rf model test ds1}
@@ -663,7 +666,8 @@ für den Parameter *mtry* (d. h. die Anzahl der pro Split einbezogenen mögliche
 Splitvariablen) auf maximal (Anzahl der Variablen - 1) beschränkt wird.
 
 ```{r non-missings ds1, include = TRUE, fig.cap="Fehlende Werte im Baseline-Datensatz"}
-vis_miss(dataset1)
+vis_miss(dataset1) +
+  theme(axis.text.x =  element_text(angle = 90))
 ```
 
 ```{r rf non-missing ds1}
@@ -693,7 +697,7 @@ rf_nm_ds1 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
                   trControl = ctrl)
 ``` 
 
-Das beste Modell ist: 
+ Das bestes Modell ergibt sich mit: 
 `r knitr::kable(rf_nm_ds1$bestTune, row.names = FALSE)`
 
 ```{r rf non-missing test ds1}
@@ -750,8 +754,8 @@ confusionMatrix(data = pred_gbm_ds1, reference = test1$Sepsis,
 ## Der Onset-Ansatz
 
 Auf dem zweiten Datensatz werden die gleichen Arten von Modellen trainiert. Auch 
-die Tunegrids bleiben mit Ausnahme der nötigen Anpassung von *mtry* bei Verringerung
-der Variablen gleich. 
+die Tunegrids bleiben mit Ausnahme der nötigen Anpassung von *mtry* bei
+Verringerung der Variablenanzahl gleich. 
 
 ```{r cart model ds2}
 set.seed(12345)
@@ -816,7 +820,7 @@ rf_ds2 <- train(x = ds2_imputed[,4:41],
                 trControl = ctrl)
 ```
 
-Das beste Modell ist: 
+Das beste Modell entsteht mit: 
 `r knitr::kable(rf_ds2$bestTune, row.names = FALSE)`
 
 ```{r rf model test ds2}
@@ -826,11 +830,12 @@ confusionMatrix(data = pred_rf_ds2, reference = test2$Sepsis,
                 positive = "positiv")
 ```
 
-Dann mit Einschränkung auf Prädiktoren mit weniger als 30 % fehlenden Werten
-und vollständige Beobachtungen:
+Nun folgt die Einschränkung auf Prädiktoren mit weniger als 30 % fehlenden Werten
+und vollständige Beobachtungen.
 
 ```{r non-missings ds2, include = TRUE, fig.cap="Fehlende Werte im Onset-Datensatz"}
-vis_miss(dataset2)
+vis_miss(dataset2) +
+  theme(axis.text.x =  element_text(angle = 90))
 ```
 
 ```{r rf non-missing ds2}
@@ -860,7 +865,7 @@ rf_nm_ds2 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
                   trControl = ctrl)
 ```
 
-Das beste Modell ist: 
+Das beste Modell hat die Parameter: 
 `r knitr::kable(rf_nm_ds2$bestTune, row.names = FALSE)`
 
 ```{r rf non-missing test ds2}
@@ -941,7 +946,7 @@ confusionMatrix(data = pred_cart_ds3, reference = test3$Sepsis,
                 positive = "positiv")
 ```
 
-Random Forests mit Imputation führen zu:
+Random Forests mit Imputation führen zu dieser optimalen Parameterwahl:
 
 ```{r rf model ds3}
 set.seed(12345)
@@ -974,7 +979,8 @@ Random Forests nach Einschränkung der Prädiktoren und auf vollständige
 Beobachtungen ergeben:
 
 ```{r non-missings ds3, include = TRUE, fig.cap="fehlende Werte im Regressionsdatensatz"}
-vis_miss(dataset3)
+vis_miss(dataset3) +
+  theme(axis.text.x =  element_text(angle = 90))
 ```
 
 ```{r rf non-missing ds3}
@@ -1016,7 +1022,7 @@ confusionMatrix(data = pred_rf_nm_ds3, reference = test3_2$Sepsis,
                 positive = "positiv")
 ```
 
-Und Gradient Boosting führt hier zu:
+Und Gradient Boosting führt hier zu den Parametern:
 
 ```{r gbm model ds3}
 set.seed(12345)
@@ -1061,11 +1067,11 @@ results <- resamples(list(CART_Baseline = cart_ds1,
 Die folgenden Übersichten vergleichen anhand der Resampling-Statistiken jeweils
 den CART-Entscheidungsbaum, den Random Forest nach Imputation, den Random Forest
 auf vollständigen Beobachtungen und die Gradient Boosting Machine für jeden 
-der drei Datensätze (also Baseline, Onset und Regression). Die weiteren 
-angepassten Entscheidungsbäume, bei denen jeweils die zunächst verwendete 
-Splitvariable aus der Betrachtung entfernt wurde, werden nicht mit einbezogen, 
-da sie weniger der Verbesserung der Vorhersagequalität als vielmehr der Beurteilung
-relevanter Kriterien dienen sollen.
+der drei Datensätze (Baseline, Onset und Regression). Die weiteren angepassten
+Entscheidungsbäume, bei denen jeweils die zunächst verwendete Splitvariable aus 
+der Betrachtung entfernt wurde, werden nicht mit einbezogen, da sie weniger der
+Verbesserung der Vorhersagequalität als vielmehr dem Auffinden relevanter
+Kriterien dienen sollen.
 
 ```{r resamples F statistics, include = TRUE, cache = FALSE}
 knitr::kable(summary(results)$statistics$F, 
@@ -1171,10 +1177,10 @@ und Recall =
 
 Idealerweise würde man die Modelle nun an einem komplett unabhängigen Testdatensatz
 (d. h. Daten aus einem anderen Krankenhaus und möglichst auch anderem Quellsystem)
-testen. Wir greifen hier auf unsere eingangs abgespalteten Testdatensätze mit 25 %
-der Beobachtungen des ursprünglichen Samples zurück - in dem Bewusstsein, dass 
-diese aus den gleichen Datenquellen stammen wie unsere Trainingsdaten. Wir erhalten
-folgende Konfusionsmatrizen:
+testen. Hier wird auf die eingangs abgespalteten Testdatensätze mit 25 % der
+Beobachtungen des ursprünglichen Samples zurückgegriffen - in dem Bewusstsein, 
+dass diese aus den gleichen Datenquellen stammen wie die Trainingsdaten. Das
+führt zu folgenden Konfusionsmatrizen:
 
 ```{r model test confusion matrices}
 pred_cart_ds1 <- predict(cart_ds1, test1)
@@ -1403,7 +1409,7 @@ Da wir uns mit den Sepsis-Labeln zeitlich vor der tatsächlichen Diagnose befind
 kann grundsätzlich jede richtig positive Klassifizierung als Verbesserung 
 verstanden werden. Aufgrund des binären Outcomes wäre eine Sensitivität von etwa 
 50 % zwar auch bei zufälliger Klassifizierung zu erwarten, allerdings würde dieses
-Vorgehen zu einer Spezifität von ebenfalls nur ca. 50 % führen. Wir können also
+Vorgehen zu einer Spezifität von ebenfalls nur ca. 50 % führen. Man kann also
 festhalten, dass ein Modell erfolgreich ist, wenn es eine Sensitivität von deutlich
 über 0 bei gleichzeitig "hoher" Spezifität erreicht. Die Frage, wann die Spezifität
 hoch genug ist, lässt sich nicht eindeutig beantworten. Ein entsprechender
@@ -1457,7 +1463,7 @@ Sepsis zu entwickeln, steigt, wenn ein Intensivaufenthalt länger als etwa 2,5 T
 andauert. Und auch innerhalb der ersten 20 Stunden (*ICULOS* < 14 plus sechs 
 Stunden vom Label bis zur Diagnose) scheint eine Sepsisdiagnose wahrscheinlich.
 Vermutlich handelt es sich hierbei um Patienten, die bereits mit einer Sepsis auf
-die Intensivstation kommen, jedoch noch nicht notwendigerweise diagnostiziert sind,
+die Intensivstation kommen, jedoch noch nicht unbedingt diagnostiziert sind,
 während die zuerst genannte Gruppe die Sepsis erst auf der Intensivstation erwirbt.
 Dennoch muss der Intensivaufenthalt nicht notwendigerweise kausal für die
 Erkrankung sein. Möglich ist zum Beispiel auch, dass Personen mit einem längeren
@@ -1478,7 +1484,7 @@ den Vitalparametern (Blutdruckwerte, Herz- und Atemfrequenz, Temperatur und
 Sauerstoffsättigung) eine größere Bedeutung zuzukommen als den Blutwerten. Jedoch
 gilt auch für diese Werte, dass sie vergleichsweise häufig verfügbar sind.
 
-Schauen wir uns die beiden favorisiereten Modelle genauer an:
+Im Folgenden werden die beiden favorisierten Modelle genauer angesehen:
 
 Die Gradient Boosting Machine mit dem Regressionsansatz wird stärker als jedes
 andere Modell von *ICULOS* dominiert. Kein anderer Prädiktor erreicht einen Score
@@ -1492,27 +1498,28 @@ Bei dem auf  dem Tetsdatensatz wegen seiner sehr hohen Spezifität positiv
 aufgefallenen Modell, dem Random Forest nach Imputation auf dem
 Regressionsdatensatz, zeichnet sich ein klareres Bild ab. Hier ist der Slope des
 endtidalen Kohlendioxids (*EtCO2*) die mit Abstand zweitwichtigste  Variable.
-Zu beachten ist auch, dass an dritter Stelle der Slope des *Bilirubin_total*
-folgt (der Variable, die im Random Forest das Onset-Datensatzes als wichtigste
-bestimmt wurde), denn wie aus Abbildung \ref{cor_plot} ersichtlich ist, korreliert
-*Bilirubin_total* vollständig mit dem aus unseren Daten entfernten 
-*Bilirubin_direct* und letzteres korreliert deutlich negativ mit *EtCO2*. Der 
-Korrelationskoeffizient für *EtCO2* und *Bilirubin_total* selbst ist wenig
-aussagekräftig, weil es kaum Beobachtungen gibt, die für beide Variablen Werte
-aufweisen. Wie im Kapitel zur Datenexploration bereits erwähnt, ist es möglich, 
-dass für einen Split nicht die eigentlich relevante Variable herangezogen wird,
-sondern eine mit ihr korrelierte. Das könnte bedeuten, dass nur einer der beiden
-hier diskutierten Prädiktoren wirklich bedeutsam für den Random Forest ist, dies 
-aber in umso höherem Maße. Falls dies zutrifft, ist zu erwarten, dass entweder 
-ein negativer *EtCO2*-Slope (Verringerung des Werts) und ein positiver 
-*Bilirubin_total*-Slope (Erhöhung des Werts) die Vorhersagewahrscheinlichkeit einer
-Sepsis erhöhen oder genau andersherum. Um dies zu untersuchen, soll ein
-Vorhersage-Interaktions-Plot der beiden Variablen auf dem Modell betrachtet werden.
-Eine Funktion, um einen solchen Plot zu erstellen, ist im R-Paket
-*randomForestExplainer* enthalten. Allerdings funktioniert diese nicht für
-*ranger*-Objekte, die aus einem *caret::train*-Objekt extrahiert wurden. Daher habe
-ich den Code leicht modifiziert. Die Änderungen befinden sich in den Codezeilen 
-12, 13 und 44 (wobei die Änderung in Zeile 44 nicht zwingend notwendig ist):
+Zu beachten ist auch, dass an dritter Stelle der Slope des 
+$\nobreak (*Bilirubin_total*)$ folgt (der Variable, die im Random Forest des
+Onset-Datensatzes als wichtigste bestimmt wurde), denn wie aus Abbildung
+\ref{cor_plot} ersichtlich ist, korreliert *Bilirubin_total* vollständig mit dem
+aus unseren Daten entfernten *Bilirubin_direct* und letzteres korreliert deutlich
+negativ mit *EtCO2*. Der Korrelationskoeffizient für *EtCO2* und *Bilirubin_total*
+selbst ist wenig aussagekräftig, weil es kaum Beobachtungen gibt, die für beide
+Variablen Werte aufweisen. Wie im Kapitel zur Datenexploration bereits erwähnt, 
+ist es möglich, dass für einen Split nicht die eigentlich relevante Variable
+herangezogen wird, sondern eine mit ihr korrelierte. Das könnte bedeuten, dass 
+nur einer der beiden hier diskutierten Prädiktoren wirklich bedeutsam für den
+Random Forest ist, dies aber in umso höherem Maße. Falls dies zutrifft, ist zu
+erwarten, dass entweder ein negativer *EtCO2*-Slope (Verringerung des Werts) und
+ein positiver *Bilirubin_total*-Slope (Erhöhung des Werts) die
+Vorhersagewahrscheinlichkeit einer Sepsis erhöhen oder genau andersherum. 
+Um dies zu untersuchen, soll ein Vorhersage-Interaktions-Plot der beiden Variablen
+auf dem Modell betrachtet werden. Eine Funktion, um einen solchen Plot zu
+erstellen, ist im R-Paket *randomForestExplainer* enthalten. Allerdings
+funktioniert diese nicht für *ranger*-Objekte, die aus einem *caret::train*-Objekt
+extrahiert wurden. Daher wurde der Code hier leicht modifiziert. Die Änderungen
+befinden sich in den Codezeilen 12, 13 und 44 (wobei die Änderung in Zeile 44 
+nicht zwingend notwendig ist):
 
 ```{r plot_predict_interaction function, attr.source = ".numberLines", include = TRUE, echo = TRUE}
 plot_predict_interaction.caret_ranger <-
@@ -1633,8 +1640,8 @@ abnimmt.
 Die CART-Bäume wurden hauptsächlich mit dem Ziel angepasst, Entscheidungsregeln
 beziehungsweise -pfade abzuleiten. Da die aus dem Tuning entstandenen Bäume nur 
 die Dauer des Intensivaufenthalts beziehungsweise die Zeit von der Hospitalisierung
-bis zur Verlegung auf die Intensivstation abbilden, ist aus ihnen außer den bereits
-ausgeführten Überlegungen zu diesen Variablen zunächst nicht viel ersichtlich. 
+bis zur Verlegung auf die Intensivstation abbilden, ist aus ihnen außer den 
+bereits ausgeführten Überlegungen zu diesen Variablen nicht viel ersichtlich. 
 Die Auswertungen der Variablenwichtigkeit und die weiteren generierten
 Entscheidungsbäume, denen die jeweilige zuvor stärkste Variable entzogen wurde,
 lassen jedoch vermuten, dass eine erhöhte Körpertemperatur (*Temp*), ein niedriger 
@@ -1688,7 +1695,7 @@ Forest und Gradient Boosting Machine) ähnliche Ergebnisse hinsichtlich der
 F1-Metrik erreicht. Lediglich hinsichtlich der Präzision ist der CART-Algorithmus
 deutlich schlechter.
 \newline
-Als erfolgversprechendste Modelle für eine weitere Erprobung ergeben sich die
+Als erfolgversprechendste Modelle zur weiteren Erprobung ergeben sich die
 Gradient Boosting Machine und die Random Forests in Verbindung mit dem
 beschriebenen Regressionsansatz. Sie haben auf den Testdaten akzeptable
 Sensitivitäten zwischen 30 und 55 % und sehr gute Spezifitäten von 98 bis 99,9 %
@@ -1701,7 +1708,7 @@ stützen sich sehr stark auf die Dauer des Intensivaufenthalts, was in dieser
 Hinsicht nicht genügend weiterhilft.
 
 Bevor ein klinischer Einsatz der Vorhersagemodelle in Betracht gezogen werden 
-kann, müssten die infrage kommenden Modelle nun auf verschiedenen Datensätzen aus
+kann, müssen die infrage kommenden Modelle nun auf verschiedenen Datensätzen aus
 unterschiedlichen Quellen getestet werden, um zu beurteilen, wie gut sich die
 Ergebnisse verallgemeinern lassen. Insbesondere die Problematik fehlender Werte
 könnte sich auf verschiedenen Datensätzen sehr unterschiedlich auswirken und vor
@@ -1719,16 +1726,16 @@ Zweck sollten weitere Strategien zum Umgang mit fehlenden Werten erprobt werden 
 zum Beispiel multiple Imputation, aber möglichst auch die Erhöhung des Füllgrads 
 zumindest einiger Prädiktoren (beispielsweise im Rahmen von Kooperationen).
 \newline
-Außerdem ist die Wahl der Evaluationsmetrik eine wichtige Stellschraube, die  
-noch weitere Möglichkeiten bietet, zum Beispiel die Verwendung einer
+Außerdem ist die Wahl der Evaluationsmetrik eine wichtige Stellschraube, die noch
+weitere Möglichkeiten bietet, zum Beispiel die Verwendung einer
 verallgemeinerten F-Metrik oder gar die Implementierung eines ganz individuell 
 auf die Fragestellung angepassten Evaluationsmaßes.
 \newline
 Und letztlich gibt es viele weitere Modelle, die grundsätzlich zur binären
-Klassifikation geeignet sind und möglicherweise einen wesentlichen Beitrag zu dem
-untersuchten Thema leisten können. Dies reicht von anderen Boosting-Algorithmen 
-bis hin zu verschiedenen nicht baumbasierten Verfahren wie beispielsweise
-neuronalen Netzen.
+Klassifizierung geeignet sind und möglicherweise einen wesentlichen Beitrag zu 
+dem untersuchten Thema leisten können. Dies reicht von anderen 
+Boosting-Algorithmen bis hin zu verschiedenen nicht baumbasierten Verfahren wie
+beispielsweise neuronalen Netzen.
 
 \newpage
 
