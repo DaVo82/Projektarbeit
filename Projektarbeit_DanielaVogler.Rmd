@@ -69,6 +69,7 @@ library(naniar)
 library(ConfusionTableR)
 library(png)
 library(randomForestExplainer)
+library(mice)
 ```
 
 \newpage
@@ -611,12 +612,6 @@ cart_adj_ds1 <- prune(cart_adj_ds1$finalModel, cp = 0.02)
 rpart.plot(cart_adj_ds1, type = 5, box.palette = "RdBu")
 ```
 
-```{r cart model test ds1}
-pred_cart_ds1 <- predict(cart_ds1, test1)
-confusionMatrix(data = pred_cart_ds1, reference = test1$Sepsis, 
-                positive = "positiv")
-```
-
 Des Weiteren werden Random Forests trainiert. Da diese Methode nicht mit fehlenden
 Werten funktioniert, wird zunächst die im R-Paket *randomForest* implementierte
 Imputation nach Breiman angewandt [@Breiman]. Das Tuning erfolgt über folgendes
@@ -651,13 +646,6 @@ rf_ds1 <- train(x = ds1_imputed[,4:41],
 
 Das beste Modell hat folgende Parameter:
 `r knitr::kable(rf_ds1$bestTune, row.names = FALSE)`
-
-```{r rf model test ds1}
-# Testdaten werden nicht automatisch imputiert
-pred_rf_ds1 <- predict(rf_ds1, rfImpute(Sepsis ~., test1)[-1])
-confusionMatrix(data = pred_rf_ds1, reference = test1$Sepsis, 
-                positive = "positiv")
-```
 
 Als weiterer Ansatz wird nun der Datensatz auf diejenigen Prädiktoren mit weniger
 als $\nobreak 30\ \%$ fehlenden Werten eingeschränkt und anschließend nur die
@@ -700,16 +688,6 @@ rf_nm_ds1 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
  Das bestes Modell ergibt sich mit: 
 `r knitr::kable(rf_nm_ds1$bestTune, row.names = FALSE)`
 
-```{r rf non-missing test ds1}
-# Vorhersagen nur für vollständige Beobachtungen
-test1_2 <- test1[, colnames(train1_2)] %>%
-  filter(complete.cases(.))
-
-pred_rf_nm_ds1 <- predict(rf_nm_ds1, test1_2)
-confusionMatrix(data = pred_rf_nm_ds1, reference = test1_2$Sepsis, 
-                positive = "positiv")
-```
-
 Während Random Forests Bäume durch Bagging kombinieren und damit insbesondere
 die Korrelation zwischen den einzelnen Bäumen verringern, zielen auf Boosting
 zurückgreifende Ensemble-Verfahren darauf, sukzessive die Vorhersagen für falsch
@@ -744,12 +722,6 @@ gbm_ds1 <- train(x = train1[,4:41],
 
 Das beste Modell ergibt sich mit folgenden Parametern:
 `r knitr::kable(gbm_ds1$bestTune, row.names = FALSE)`
-
-```{r gbm model test ds1}
-pred_gbm_ds1 <- predict(gbm_ds1, test1)
-confusionMatrix(data = pred_gbm_ds1, reference = test1$Sepsis, 
-                positive = "positiv")
-```
 
 ## Der Onset-Ansatz
 
@@ -793,12 +765,6 @@ cart_adj_ds2 <- train(x = train2[,4:40],
 rpart.plot(cart_adj_ds2$finalModel, type = 5, box.palette = "RdBu")
 ```
 
-```{r cart model test ds2}
-pred_cart_ds2 <- predict(cart_ds2, test2)
-confusionMatrix(data = pred_cart_ds2, reference = test2$Sepsis, 
-                positive = "positiv")
-```
-
 Es folgen die Random Forests - zunächst mit Imputation nach Breiman.
 
 ```{r rf model ds2}
@@ -822,13 +788,6 @@ rf_ds2 <- train(x = ds2_imputed[,4:41],
 
 Das beste Modell entsteht mit: 
 `r knitr::kable(rf_ds2$bestTune, row.names = FALSE)`
-
-```{r rf model test ds2}
-# Testdaten werden nicht automatisch imputiert
-pred_rf_ds2 <- predict(rf_ds2, rfImpute(Sepsis ~., test2)[-1])
-confusionMatrix(data = pred_rf_ds2, reference = test2$Sepsis, 
-                positive = "positiv")
-```
 
 Nun folgt die Einschränkung auf Prädiktoren mit weniger als 30 % fehlenden Werten
 und vollständige Beobachtungen.
@@ -868,16 +827,6 @@ rf_nm_ds2 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
 Das beste Modell hat die Parameter: 
 `r knitr::kable(rf_nm_ds2$bestTune, row.names = FALSE)`
 
-```{r rf non-missing test ds2}
-# Vorhersagen nur für vollständige Beobachtungen
-test2_2 <- test2[, colnames(train2_2)] %>%
-  filter(complete.cases(.))
-
-pred_rf_nm_ds2 <- predict(rf_nm_ds2, test2_2)
-confusionMatrix(data = pred_rf_nm_ds2, reference = test2_2$Sepsis, 
-                positive = "positiv")
-```
-
 Und für die Gradient Boosting Machine ergibt sich schließlich:
 
 ```{r gbm model ds2}
@@ -894,12 +843,6 @@ gbm_ds2 <- train(x = train2[,4:41],
 ```
 
  `r knitr::kable(gbm_ds2$bestTune, row.names = FALSE)`
-
-```{r gbm model test ds2}
-pred_gbm_ds2 <- predict(gbm_ds2, test2)
-confusionMatrix(data = pred_gbm_ds2, reference = test2$Sepsis, 
-                positive = "positiv")
-```
 
 ## Der Regressionsansatz
 
@@ -940,12 +883,6 @@ cart_adj_ds3 <- train(x = train3[,-c(1,2,8)],
 rpart.plot(cart_adj_ds3$finalModel, type = 5, box.palette = "RdBu")
 ```
 
-```{r cart model test ds3}
-pred_cart_ds3 <- predict(cart_ds3, test3)
-confusionMatrix(data = pred_cart_ds3, reference = test3$Sepsis, 
-                positive = "positiv")
-```
-
 Random Forests mit Imputation führen zu dieser optimalen Parameterwahl:
 
 ```{r rf model ds3}
@@ -967,13 +904,6 @@ rf_ds3 <- train(x = ds3_imputed[,3:40],
 ```
 
 `r knitr::kable(rf_ds3$bestTune, row.names = FALSE)`
-
-```{r rf model test ds3}
-# Testdaten werden nicht automatisch imputiert
-pred_rf_ds3 <- predict(rf_ds3, rfImpute(Sepsis ~., test3)[-1])
-confusionMatrix(data = pred_rf_ds3, reference = test3$Sepsis,
-                positive = "positiv")
-```
 
 Random Forests nach Einschränkung der Prädiktoren und auf vollständige
 Beobachtungen ergeben:
@@ -1012,16 +942,6 @@ rf_nm_ds3 <- train(Sepsis ~ . - Patient_ID - Sepsis,
 
 `r knitr::kable(rf_nm_ds3$bestTune, row.names = FALSE)`
 
-```{r rf non-missing test ds3}
-# Vorhersagen nur für vollständige Beobachtungen
-test3_2 <- test3[, colnames(train3_2)] %>%
-  filter(complete.cases(.))
-
-pred_rf_nm_ds3 <- predict(rf_nm_ds3, test3_2)
-confusionMatrix(data = pred_rf_nm_ds3, reference = test3_2$Sepsis, 
-                positive = "positiv")
-```
-
 Und Gradient Boosting führt hier zu den Parametern:
 
 ```{r gbm model ds3}
@@ -1038,12 +958,6 @@ gbm_ds3 <- train(x = train3[,3:40],
 ```
 
 `r knitr::kable(gbm_ds3$bestTune, row.names = FALSE)`
-
-```{r gbm model test ds3}
-pred_gbm_ds3 <- predict(gbm_ds3, test3)
-confusionMatrix(data = pred_gbm_ds3, reference = test3$Sepsis, 
-                positive = "positiv")
-```
 
 \newpage
 
@@ -1179,8 +1093,17 @@ Idealerweise würde man die Modelle nun an einem komplett unabhängigen Testdate
 (d. h. Daten aus einem anderen Krankenhaus und möglichst auch anderem Quellsystem)
 testen. Hier wird auf die eingangs abgespalteten Testdatensätze mit 25 % der
 Beobachtungen des ursprünglichen Samples zurückgegriffen - in dem Bewusstsein, 
-dass diese aus den gleichen Datenquellen stammen wie die Trainingsdaten. Das
-führt zu folgenden Konfusionsmatrizen:
+dass diese aus den gleichen Datenquellen stammen wie die Trainingsdaten. 
+\newline Hinsichtlich der Random Forests mit imputierten Daten stellt sich die
+Frage, wie die Imputation der Testdaten erfolgen soll. *rfImpute* setzt voraus,
+dass die Daten gelabelt sind. Dies ist zwar bei den Testdaten erfüllt, stellt aber
+kein realistisches Szenario dar. Bei einem realen Einsatz des Modells sind keine
+Label bekannt und es ist zu befürchten, dass die tatsächliche Fehlerrate 
+unterschätzt wird, wenn für den Test Daten imputiert werden, die Beobachtungen 
+mit dem gleichen Sepsisstatus ähneln. An dieser Stelle wird daher multiple 
+Imputation mit den Standardeinstellungen des R-Pakets *mice* verwendet.
+
+Die Tests führen zu folgenden Konfusionsmatrizen:
 
 ```{r model test confusion matrices}
 pred_cart_ds1 <- predict(cart_ds1, test1)
@@ -1198,12 +1121,18 @@ binary_visualiseR(train_labels = pred_cart_ds1,
                                text_col = "black")
 dev.off()
 
-# Testdaten werden nicht automatisch imputiert (außerhalb Preprocessing)
-pred_rf_ds1 <- predict(rf_ds1, rfImpute(Sepsis ~., test1)[-1])
+# Für Random Forest zunächst Testdaten imputieren (ToDO: Sepsis ausschließen)
+set.seed(12345)
+
+test1_imputed <- complete(mice(test1, remove.collinear = FALSE), # TroponinI nicht
+                                                                 # ausschließen
+                          action = "stacked") 
+
+pred_rf_ds1 <- predict(rf_ds1, test1_imputed[-42])
 
 png("figures/cf_plot2.png")
 binary_visualiseR(train_labels = pred_rf_ds1,
-                               truth_labels = test1$Sepsis,
+                               truth_labels = test1_imputed$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
                                quadrant_col1 = "#E5826D",
@@ -1259,12 +1188,19 @@ binary_visualiseR(train_labels = pred_cart_ds2,
                                text_col = "black")
 dev.off()
 
-# Testdaten werden nicht automatisch imputiert (außerhalb Preprocessing)
-pred_rf_ds2 <- predict(rf_ds2, rfImpute(Sepsis ~., test2)[-1])
+# Testdaten imputieren (ToDo: Sepsis ausschließen)
+set.seed(12345)
+
+test2_imputed <- complete(mice(test2), action = "stacked") %>% 
+  mutate(Unit2 = case_when(Unit1 == "ja"~ "nein",
+                           Unit1 == "nein"~ "ja")
+  )
+
+pred_rf_ds2 <- predict(rf_ds2, test2_imputed[-42])
 
 png("figures/cf_plot6.png")
 binary_visualiseR(train_labels = pred_rf_ds2,
-                               truth_labels = test2$Sepsis,
+                               truth_labels = test2_imputed$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
                                quadrant_col1 = "#E5826D",
@@ -1320,12 +1256,19 @@ binary_visualiseR(train_labels = pred_cart_ds3,
                                text_col = "black")
 dev.off()
 
-# Testdaten werden nicht automatisch imputiert (außerhalb Preprocessing)
-pred_rf_ds3 <- predict(rf_ds3, rfImpute(Sepsis ~., test3)[-1])
+# Testdaten imputieren (ToDo: Sepsis ausschließen)
+set.seed(12345)
+
+test3_imputed <- complete(mice(test3), action = "stacked") %>% 
+  mutate(Unit2 = case_when(Unit1 == "ja"~ "nein",
+                           Unit1 == "nein"~ "ja")
+         )
+
+pred_rf_ds3 <- predict(rf_ds3, test3_imputed[-2])
 
 png("figures/cf_plot10.png")
 binary_visualiseR(train_labels = pred_rf_ds3,
-                               truth_labels = test3$Sepsis,
+                               truth_labels = test3_imputed$Sepsis,
                                class_label1 = "positiv", 
                                class_label2 = "negativ",
                                quadrant_col1 = "#E5826D",
@@ -1385,17 +1328,17 @@ cf_table11 <- rasterGrob(readPNG("figures/cf_plot11.png"))
 cf_table12 <- rasterGrob(readPNG("figures/cf_plot12.png"))
 ```
 
-```{r confusion matrix plots1, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Baseline-Datensatz)"}
+```{r confusion matrix plots1, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Baseline-Datensatz)", cache = FALSE}
 grid.arrange(cf_table1, cf_table2, cf_table3, cf_table4,
              ncol = 2, nrow = 2)
 ```
 
-```{r confusion matrix plots2, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Onset-Datensatz)"}
+```{r confusion matrix plots2, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Onset-Datensatz)", cache = FALSE}
 grid.arrange( cf_table5, cf_table6, cf_table7, cf_table8, 
              ncol = 2, nrow = 2)
 ```
 
-```{r confusion matrix plots3, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Regressionsdatensatz)"}
+```{r confusion matrix plots3, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Regressionsdatensatz)", cache = FALSE}
 grid.arrange(cf_table9, cf_table10, cf_table11, cf_table12,
              ncol = 2, nrow = 2)
 ```
