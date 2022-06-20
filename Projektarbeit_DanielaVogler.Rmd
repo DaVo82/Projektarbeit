@@ -69,7 +69,6 @@ library(naniar)
 library(ConfusionTableR)
 library(png)
 library(randomForestExplainer)
-library(mice)
 ```
 
 \newpage
@@ -1098,10 +1097,12 @@ dass diese aus den gleichen Datenquellen stammen wie die Trainingsdaten.
 Frage, wie die Imputation der Testdaten erfolgen soll. *rfImpute* setzt voraus,
 dass die Daten gelabelt sind. Dies ist zwar bei den Testdaten erfüllt, stellt aber
 kein realistisches Szenario dar. Bei einem realen Einsatz des Modells sind keine
-Label bekannt und es ist zu befürchten, dass die tatsächliche Fehlerrate 
-unterschätzt wird, wenn für den Test Daten imputiert werden, die Beobachtungen 
-mit dem gleichen Sepsisstatus ähneln. An dieser Stelle wird daher multiple 
-Imputation mit den Standardeinstellungen des R-Pakets *mice* verwendet.
+Label bekannt, sodass dieses Vorgehen nicht übertragbar wäre. Hier werden daher 
+alle Beobachtungen für die Imputation vorübergehend mit einem negativen Label
+versehen, d. h. mit dem bisher angenommenen Status (in dem Sinne, dass bereits 
+als Sepsisfälle diagnostizierte Patienten nicht mehr klassifiziert werden müssten).
+Dann wird, wie auch beim Training des Modells, *rfImpute* angewendet. Alternativ 
+wären Imputataionsverfahren möglich, die kein Label voraussetzen.
 
 Die Tests führen zu folgenden Konfusionsmatrizen:
 
@@ -1121,12 +1122,17 @@ binary_visualiseR(train_labels = pred_cart_ds1,
                                text_col = "black")
 dev.off()
 
-# Für Random Forest zunächst Testdaten imputieren (ToDO: Sepsis ausschließen)
+# Für Random Forest zunächst Testdaten imputieren
 set.seed(12345)
 
-test1_imputed <- complete(mice(test1, remove.collinear = FALSE), # TroponinI nicht
-                                                                 # ausschließen
-                          action = "stacked") 
+test1_imputed <- test1 %>% 
+  mutate(Sepsis0 = as.factor("negativ")) %>% 
+  rbind(., cbind(train1[1,], Sepsis0 = as.factor("positiv")))
+        # es muss eine zweite Klasse geben
+
+test1_imputed <- rfImpute(Sepsis0 ~. - Sepsis , test1_imputed) %>% 
+  filter(Sepsis0 == "negativ") %>%     # Trainingsdaten wieder entfernen
+  select(-Sepsis0)
 
 pred_rf_ds1 <- predict(rf_ds1, test1_imputed[-42])
 
@@ -1188,13 +1194,17 @@ binary_visualiseR(train_labels = pred_cart_ds2,
                                text_col = "black")
 dev.off()
 
-# Testdaten imputieren (ToDo: Sepsis ausschließen)
+# Testdaten imputieren
 set.seed(12345)
 
-test2_imputed <- complete(mice(test2), action = "stacked") %>% 
-  mutate(Unit2 = case_when(Unit1 == "ja"~ "nein",
-                           Unit1 == "nein"~ "ja")
-  )
+test2_imputed <- test2 %>% 
+  mutate(Sepsis0 = as.factor("negativ")) %>% 
+  rbind(., cbind(train2[1,], Sepsis0 = as.factor("positiv")))
+        # es muss eine zweite Klasse geben
+
+test2_imputed <- rfImpute(Sepsis0 ~. - Sepsis , test2_imputed) %>% 
+  filter(Sepsis0 == "negativ") %>%     # Trainingsdaten wieder entfernen
+  select(-Sepsis0)
 
 pred_rf_ds2 <- predict(rf_ds2, test2_imputed[-42])
 
@@ -1256,13 +1266,17 @@ binary_visualiseR(train_labels = pred_cart_ds3,
                                text_col = "black")
 dev.off()
 
-# Testdaten imputieren (ToDo: Sepsis ausschließen)
+# Testdaten imputieren
 set.seed(12345)
 
-test3_imputed <- complete(mice(test3), action = "stacked") %>% 
-  mutate(Unit2 = case_when(Unit1 == "ja"~ "nein",
-                           Unit1 == "nein"~ "ja")
-         )
+test3_imputed <- test3 %>% 
+  mutate(Sepsis0 = as.factor("negativ")) %>% 
+  rbind(., cbind(train3[1,], Sepsis0 = as.factor("positiv")))
+        # es muss eine zweite Klasse geben
+
+test3_imputed <- rfImpute(Sepsis0 ~. - Sepsis , test3_imputed) %>% 
+  filter(Sepsis0 == "negativ") %>%     # Trainingsdaten wieder entfernen
+  select(-Sepsis0)
 
 pred_rf_ds3 <- predict(rf_ds3, test3_imputed[-2])
 
@@ -1343,10 +1357,10 @@ grid.arrange(cf_table9, cf_table10, cf_table11, cf_table12,
              ncol = 2, nrow = 2)
 ```
 
-Alle Modelle mit Ausnahme des CART und des GBM auf dem Baseline-Datensatz weisen 
-hohe Accuracys von über 90 % auf; allerdings ist dies aufgrund der niedrigen
-Prävalenz wenig aussagekräftig, da Werte in diesem Bereich bereits erreicht würden,
-wenn immer negativ klassifiziert würde.
+Fast alle Modelle weisen hohe Accuracys von über 90 % auf (Ausnahmen: CART, Random
+Forest (imputiert) und GBM auf dem Baseline-Datensatz). Allerdings ist dies
+aufgrund der niedrigen Prävalenz wenig aussagekräftig, da Werte in diesem Bereich
+bereits erreicht würden, wenn immer negativ klassifiziert würde.
 
 Da wir uns mit den Sepsis-Labeln zeitlich vor der tatsächlichen Diagnose befinden,
 kann grundsätzlich jede richtig positive Klassifizierung als Verbesserung 
@@ -1381,8 +1395,11 @@ Regressionsdatensatz, ist festzuhalten, dass das Verhältnis FP/TP mit
             round(cf_gbm_ds3$cm_tbl[3,2]/cf_gbm_ds3$cm_tbl[1,2], 2), 
             decimal.mark = ",")` 
 vergleichsweise hoch ist. Unter diesem Aspekt könnte der Random Forest nach
-Imputation auf dem Regressionsdatensatz trotz seiner niedrigeren Sensitivität je
-nach Anwendungssituation vorzuziehen sein.
+Imputation auf dem Regressionsdatensatz trotz seiner deutlich niedrigeren
+Sensitivität je nach Anwendungssituation vorzuziehen sein. Der Random Forest auf
+vollständigen Daten stellt in dieser Hinsicht einen Kompromiss dar, ist allerdings
+nur auf neue Daten anwendbar, wenn Vollständigkeit hinsichtlich der einbezogenen
+Variablen erreicht werden kann.
 
 ## Entscheidungsregeln und Einfluss einzelner Prädiktoren
 
@@ -1634,14 +1651,14 @@ der Veränderung dieser Werte in Form von Slopes einer patientenindividuellen
 linearen Regression erfolgen.
 
 Mit diesem Ansatz haben alle untersuchten Modelle (CART-Entscheidungsbaum, Random
-Forest und Gradient Boosting Machine) ähnliche Ergebnisse hinsichtlich der
+Forests und Gradient Boosting Machine) ähnliche Ergebnisse hinsichtlich der
 F1-Metrik erreicht. Lediglich hinsichtlich der Präzision ist der CART-Algorithmus
 deutlich schlechter.
 \newline
 Als erfolgversprechendste Modelle zur weiteren Erprobung ergeben sich die
 Gradient Boosting Machine und die Random Forests in Verbindung mit dem
 beschriebenen Regressionsansatz. Sie haben auf den Testdaten akzeptable
-Sensitivitäten zwischen 30 und 55 % und sehr gute Spezifitäten von 98 bis 99,9 %
+Sensitivitäten zwischen 15 und 55 % und sehr gute Spezifitäten von 98 bis 99,8 %
 erreicht.
 
 Hinsichtlich der Frage nach der Ableitbarkeit von Entscheidungsregeln zur nicht
