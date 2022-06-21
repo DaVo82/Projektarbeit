@@ -878,7 +878,7 @@ cart_adj_ds3 <- train(x = train3[,-c(1,2,8)],
                   trControl = ctrl)
 ```
 
-```{r cart model adjusted results ds3, include = TRUE, fig.cap="Entscheidungsbaum Regressionsdatensatz angepasst"}
+```{r cart model adjusted results ds3, include = TRUE, fig.cap="\\label{cart_adj_ds3}Entscheidungsbaum Regressionsdatensatz angepasst"}
 rpart.plot(cart_adj_ds3$finalModel, type = 5, box.palette = "RdBu")
 ```
 
@@ -986,7 +986,7 @@ der Betrachtung entfernt wurde, werden nicht mit einbezogen, da sie weniger der
 Verbesserung der Vorhersagequalität als vielmehr dem Auffinden relevanter
 Kriterien dienen sollen.
 
-```{r resamples F statistics, include = TRUE, cache = FALSE}
+```{r resamples F statistics, include = TRUE}
 knitr::kable(summary(results)$statistics$F, 
              booktabs = T, 
              caption = "F-Metrik") %>%
@@ -994,7 +994,7 @@ knitr::kable(summary(results)$statistics$F,
                 position = "center")
 ```
 
-```{r resamples AUC statistics, include = TRUE, cache = FALSE}
+```{r resamples AUC statistics, include = TRUE}
 knitr::kable(summary(results)$statistics$AUC, 
              booktabs = T, 
              caption = "AUC") %>%
@@ -1002,7 +1002,7 @@ knitr::kable(summary(results)$statistics$AUC,
                 position = "center")
 ```
 
-```{r resamples precision statistics, include = TRUE, cache = FALSE}
+```{r resamples precision statistics, include = TRUE}
 knitr::kable(summary(results)$statistics$Precision, 
              booktabs = T, 
              caption  = "Precision") %>%
@@ -1010,7 +1010,7 @@ knitr::kable(summary(results)$statistics$Precision,
                 position = "center")
 ```
 
-```{r resamples recall statistics, include = TRUE, cache = FALSE}
+```{r resamples recall statistics, include = TRUE}
 knitr::kable(summary(results)$statistics$Recall, 
              booktabs = T, 
              caption  = "Recall") %>%
@@ -1342,17 +1342,17 @@ cf_table11 <- rasterGrob(readPNG("figures/cf_plot11.png"))
 cf_table12 <- rasterGrob(readPNG("figures/cf_plot12.png"))
 ```
 
-```{r confusion matrix plots1, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Baseline-Datensatz)", cache = FALSE}
+```{r confusion matrix plots1, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Baseline-Datensatz)"}
 grid.arrange(cf_table1, cf_table2, cf_table3, cf_table4,
              ncol = 2, nrow = 2)
 ```
 
-```{r confusion matrix plots2, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Onset-Datensatz)", cache = FALSE}
+```{r confusion matrix plots2, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Onset-Datensatz)"}
 grid.arrange( cf_table5, cf_table6, cf_table7, cf_table8, 
              ncol = 2, nrow = 2)
 ```
 
-```{r confusion matrix plots3, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Regressionsdatensatz)", cache = FALSE}
+```{r confusion matrix plots3, include = TRUE, out.height='150%', out.width='120%', fig.cap="Konfusionsmatrizen (Regressionsdatensatz)"}
 grid.arrange(cf_table9, cf_table10, cf_table11, cf_table12,
              ncol = 2, nrow = 2)
 ```
@@ -1454,10 +1454,10 @@ Aufbaus des Algorithmus kaum möglich. Insgesamt lässt sich daher nur sagen, da
 eine große Bandbreite an Prädiktoren Verwendung findet, der Dauer des Aufenthalts
 auf der Intensivstation aber die mit Abstand größte Bedeutung zukommt.
 
-Bei dem auf  dem Tetsdatensatz wegen seiner sehr hohen Spezifität positiv
+Bei dem auf dem Tetsdatensatz wegen seiner sehr hohen Spezifität positiv
 aufgefallenen Modell, dem Random Forest nach Imputation auf dem
 Regressionsdatensatz, zeichnet sich ein klareres Bild ab. Hier ist der Slope des
-endtidalen Kohlendioxids (*EtCO2*) die mit Abstand zweitwichtigste  Variable.
+endtidalen Kohlendioxids (*EtCO2*) die mit Abstand zweitwichtigste Variable.
 Zu beachten ist auch, dass an dritter Stelle der Slope des 
 $\nobreak (*Bilirubin_total*)$ folgt (der Variable, die im Random Forest des
 Onset-Datensatzes als wichtigste bestimmt wurde), denn wie aus Abbildung
@@ -1607,10 +1607,16 @@ Entscheidungsbäume, denen die jeweilige zuvor stärkste Variable entzogen wurde
 lassen jedoch vermuten, dass eine erhöhte Körpertemperatur (*Temp*), ein niedriger 
 oder fallender Blutdruck (*MAP*, *DBP*, *SBP*), eine hohe Atemfrequenz (*Resp*)
 sowie eine hohe Herzfrequenz (*HR*) Anzeichen für eine beginnende Sepsis sein 
-können. Dies deckt sich in etwa mit den obligaten Diagnosekriterien nach [@Werdan].
-
-[evtl. Zusammenspiel Glukose-, Kalium- und Chloridänderung sowie Leukos 
-Medizinische Einordnung?]
+können. Dies deckt sich in etwa mit Teilen der obligaten Diagnosekriterien nach
+[@Werdan] und allgemein üblichen SIRS-Kriterien.
+\newline
+Abbildung \ref{cart_adj_ds3} zeigt außerdem ein komplexes Zusammenspiel
+verschiedener Blutwerte, die in einem Zusammenhang mit Entzündungsreaktionen oder 
+einem (beginnenden) Organversagen stehen können. Inwieweit sich hieraus allgemein
+anwendbare Entscheidungsregeln ableiten lassen, ist aber fraglich, zumal
+Veränderungen dieser Werte auch im Kontext mit Vor- und Begleiterkrankungen
+beurteilt werden müssen. So ist beispielsweise eine Änderung des Glukosewerts bei
+einem Diabetiker anders zu beurteilen als bei einem Nicht-Diabetiker.
 
 \newpage
 
