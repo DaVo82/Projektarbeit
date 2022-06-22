@@ -629,11 +629,11 @@ set.seed(12345)
 
 # Imputation nach Breiman:
 
-ds1_imputed <- rfImpute(train1$Sepsis ~ ., train1) %>%
+train1_imputed <- rfImpute(train1$Sepsis ~ ., train1) %>%
   dplyr::rename(Sepsis = `train1$Sepsis`) %>%
   relocate(Sepsis, .after = ICULOS)
 
-rf_ds1 <- train(x = ds1_imputed[,4:41],
+rf_ds1 <- train(x = train1_imputed[,4:41],
                 y = train1$Sepsis,
                 method = "ranger",
                 tuneGrid = rf_grid,
@@ -771,11 +771,11 @@ set.seed(12345)
 
 # Imputation nach Breiman:
 
-ds2_imputed <- rfImpute(train2$Sepsis ~ ., train2) %>%
+train2_imputed <- rfImpute(train2$Sepsis ~ ., train2) %>%
   dplyr::rename(Sepsis = `train2$Sepsis`) %>%
   relocate(Sepsis, .after = ICULOS)
 
-rf_ds2 <- train(x = ds2_imputed[,4:41],
+rf_ds2 <- train(x = train2_imputed[,4:41],
                 y = train2$Sepsis,
                 method = "ranger",
                 tuneGrid = rf_grid,
@@ -889,10 +889,10 @@ set.seed(12345)
 
 # Imputation nach Breiman:
 
-ds3_imputed <- rfImpute(train3$Sepsis ~ ., train3) %>%
+train3_imputed <- rfImpute(train3$Sepsis ~ ., train3) %>%
   dplyr::rename(Sepsis = `train3$Sepsis`)
 
-rf_ds3 <- train(x = ds3_imputed[,3:40],
+rf_ds3 <- train(x = train3_imputed[,3:40],
                 y = train3$Sepsis,
                 method = "ranger",
                 tuneGrid = rf_grid,
@@ -1454,7 +1454,7 @@ Aufbaus des Algorithmus kaum möglich. Insgesamt lässt sich daher nur sagen, da
 eine große Bandbreite an Prädiktoren Verwendung findet, der Dauer des Aufenthalts
 auf der Intensivstation aber die mit Abstand größte Bedeutung zukommt.
 
-Bei dem auf dem Tetsdatensatz wegen seiner sehr hohen Spezifität positiv
+Bei dem auf dem Testdatensatz wegen seiner sehr hohen Spezifität positiv
 aufgefallenen Modell, dem Random Forest nach Imputation auf dem
 Regressionsdatensatz, zeichnet sich ein klareres Bild ab. Hier ist der Slope des
 endtidalen Kohlendioxids (*EtCO2*) die mit Abstand zweitwichtigste Variable.
@@ -1588,7 +1588,7 @@ function(forest, data, variable1, variable2, grid = 100,
 ```
 
 ```{r interaction plot, include = TRUE, fig.cap="Vorhersage-Interaktion zwischen Bilirubin und Kohlendioxidwert im Random Forest (Regressionsdatensatz)"}
-plot_predict_interaction.caret_ranger(rf_ds3$finalModel,ds3_imputed, 
+plot_predict_interaction.caret_ranger(rf_ds3$finalModel,train3_imputed, 
                                       "slope_Bilirubin_total", "slope_EtCO2",
                                       main = "")
 ```
