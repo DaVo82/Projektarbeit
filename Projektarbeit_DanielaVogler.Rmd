@@ -145,21 +145,28 @@ Beobachtungen zu
               decimal.mark = ",")` 
 Intensivpatienten aus zwei verschiedenen US-amerikanischen Krankenhäusern 
 verwendet. Die Daten umfassen neben einigen demografischen und administrativen
-Baseline-Angaben zum Fall acht Vitalparameter (Variablen 3-10) und 26 Blutwerte
+Basisangaben zum Fall acht Vitalparameter (Variablen 3-10) und 26 Blutwerte
 (Variablen 11-36), siehe Tabelle \ref{vars_table} im Anhang. 
 \newline
 Die Erfassung erfolgte stündlich; kontinuierlich gemessene Werte wurden gemittelt.
 
+Das Labeling erfolgte in Übereinstimmung mit der Sepsis-3-Definition.
+\newline
 Zu beachten ist, dass die Daten bereits sechs Stunden vor dem Ausbruch der Sepsis
 als positiv gelabelt wurden, sodass eine korrekte Klassifizierung als 
 Sepsispatient einem zeitlichen Vorsprung von drei bis sechs Stunden entspricht. 
 Dabei ergibt sich ein Zeitfenster kleiner sechs Stunden, wenn der Ausbruch 
 innerhalb der ersten sechs Stunden nach Aufnahme auf die Intensivstation erfolgt,
 wobei Ausbrüche innerhalb weniger als vier Stunden aus den Daten entfernt wurden.
-Als Ausbruch gilt das Auftreten eines Organversagens gemäß Sequential Organ Failure
-Assessment (SOFA) oder ein klinischer Verdacht, der sich in einer intravenösen
-Antibiotikagabe und dem Anlegen von Blutkulturen widerspiegelt. Zu den Details 
-siehe [@Reyna].
+Als Ausbruchzeitpunkt gilt hierbei das Minimum von
+\newline
+- dem Zeitpunkt des Auftretens einer Organdysfunktion gemäß Sequential Organ
+Failure Assessment (SOFA) 
+\newline
+- dem Zeitpunkt, zu dem sich ein konkreter klinischer Verdacht auf eine Infektion
+in einer intravenösen Antibiotikagabe und dem Anlegen von Blutkulturen
+widerspiegelt. 
+\newline Zu den Details siehe [@Reyna].
 
 ```{r data structure}
 summary(data_sample)
@@ -623,6 +630,9 @@ rf_grid <- expand.grid(
   .min.node.size = seq(5, 20, 5)
 )
 ```
+
+Die Anzahl der Bäume ist für diesen und alle weiteren Random Forests - basierend
+auf einigen manuellen Tests - auf 100 festgelegt.
 
 ```{r rf model ds1}
 set.seed(12345)
@@ -1612,11 +1622,18 @@ können. Dies deckt sich in etwa mit Teilen der obligaten Diagnosekriterien nach
 \newline
 Abbildung \ref{cart_adj_ds3} zeigt außerdem ein komplexes Zusammenspiel
 verschiedener Blutwerte, die in einem Zusammenhang mit Entzündungsreaktionen oder 
-einem (beginnenden) Organversagen stehen können. Inwieweit sich hieraus allgemein
-anwendbare Entscheidungsregeln ableiten lassen, ist aber fraglich, zumal
-Veränderungen dieser Werte auch im Kontext mit Vor- und Begleiterkrankungen
-beurteilt werden müssen. So ist beispielsweise eine Änderung des Glukosewerts bei
-einem Diabetiker anders zu beurteilen als bei einem Nicht-Diabetiker.
+einem (beginnenden) Organversagen stehen können. Eine Ableitung anwendbarer 
+Entscheidungsregeln hieraus, ohne dass eine weitere Differenzierung vorgenommen
+wird, ist aber kritisch zu sehen, zumal Veränderungen dieser Werte auch im Kontext
+mit Vor- und Begleiterkrankungen betrachtet werden müssen. So ist beispielsweise
+eine Änderung des Glukosewerts bei einem Diabetiker anders zu beurteilen als bei
+einem Nicht-Diabetiker. Zudem können die Werte erheblich durch medikamentöse
+Behandlungen beeinflusst sein, zu denen die Daten aber keine Informationen
+enthalten.
+\footnote{Die medizinische Einschätzung dieses Entscheidungsbaumes basiert auf 
+einer Diskussion mit Dr. med. Ulf Dennler, Leiter der Stabsstelle Strategisches 
+Medizincontrolling am Universitätsklinikum Ulm, Intensivmediziner, dem ich hiermit
+für seinen Beitrag danke.}
 
 \newpage
 
