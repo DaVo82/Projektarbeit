@@ -5,6 +5,7 @@ library(caret)
 library(ranger)
 library(gbm)
 library(DALEX)
+library(scales)
 
 # Voraussetzungen: trainierte Modelle und DALEX-Explainer
 #                  aufbereitete Analysedaten (Slopes, imputierte Variante für Rf)
@@ -15,15 +16,25 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       radioButtons('model', 'Modell wählen:', 
-                  c("Random Forest", "Gradient Boosting Machine")),
+                  c("Gradient Boosting Machine", "Random Forest")),
       selectizeInput('patient', 'Patienten wählen:',
                      options = list(maxOptions = 1500),
                      unique(test3$Patient_ID)),
-      actionButton('predictButton', 'Berechnen')
+      actionButton('predictButton', 'Berechnen'),
+      fluidRow(hr()),
+      selectizeInput('variable', 'Zeitreihe anzeigen für:',
+                     data_sample %>% 
+                       select(-Patient_ID, -X, -Hour, -HospAdmTime, -Age, -Gender, 
+                              -Unit1, -Unit2, -ICULOS, -SepsisLabel, -Sepsis) %>% 
+                       names() %>% 
+                       sort()),
     ),
     mainPanel(
       htmlOutput('probability'), tags$head(tags$style("#probability{font-size: 20px}")),
-      plotOutput('plot')
+      plotOutput('bdplot'),
+      fluidRow(hr()),
+      tableOutput('Basisdaten'),
+      plotOutput('tsplot')
       )
     )
   )
@@ -53,22 +64,24 @@ server <- function(input, output, session){
       paste("Die Wahrscheinlichkeit für eine Sepsis beträgt",
             round(prediction * 100, 1),
             "%"))
-    output$plot <- renderPlot(plot(bd))
+    output$bdplot <- renderPlot(plot(bd))
+    new_data_obs <- data_sample %>% 
+      filter(Patient_ID == input$patient)
+    output$Basisdaten <- renderTable({
+      new_data_obs %>%
+        transmute(Patient_ID, Age, Gender, Unit = case_when(!is.na(Unit1) ~ "MICU",
+                                                            !is.na(Unit1) ~ "SICU"),
+                  HospAdmTime) %>%
+        unique() 
     })
+    output$tsplot <- renderPlot(ggplot(new_data_obs, aes_string(x = 'Hour', y = input$variable)) +
+                                  geom_line() +
+                                  geom_point() +
+                                  geom_smooth(method = "lm", se = FALSE) +
+                                  scale_y_continuous(labels = label_number(
+                                    accuracy = 0.1)),
+                                height = 200)
+  }) 
 }
 
 shinyApp(ui = ui, server = server)
-
-# evtl. zweiter Plot auf Anforderung mit einem Prädiktor im Zeitverlauf
-# tableOutput('Basisdaten'),
-# 
-# 
-# new_data_all <- data_sample %>% 
-#   filter(Patient_ID == input$patient)
-# output$Basisdaten <- renderTable({
-#   new_data_all %>% 
-#     transmute(Patient_ID, Age, Gender, Unit = case_when(!is.na(Unit1) ~ "MICU",
-#                                                         !is.na(Unit1) ~ "SICU"),
-#               HospAdmTime) %>% 
-#     unique()
-# })
