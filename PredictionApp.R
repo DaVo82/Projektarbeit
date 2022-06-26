@@ -10,6 +10,7 @@ library(scales)
 # Voraussetzungen: trainierte Modelle und DALEX-Explainer
 #                  aufbereitete Analysedaten (Slopes, imputierte Variante für Rf)
 #                  Datensatz mit den vollständigen Beobachtungen der Analysedaten
+# (nach Rendern von "Projektarbeit_DanielaVogler.Rmd" mit clean = FALSE verfügbar)
 
 ui <- fluidPage(
   titlePanel("Sepsis-Prädiktion"),
@@ -30,7 +31,8 @@ ui <- fluidPage(
                        sort()),
     ),
     mainPanel(
-      htmlOutput('probability'), tags$head(tags$style("#probability{font-size: 20px}")),
+      htmlOutput('probability'), 
+      tags$head(tags$style("#probability{font-size: 20px}")),
       plotOutput('bdplot'),
       fluidRow(hr()),
       tableOutput('Basisdaten'),
@@ -58,8 +60,8 @@ server <- function(input, output, session){
                           new_observation = new_data,
                           keep_distribution = FALSE,
                           predict_function = predict.function,
-                          type = "break_down") # interaction sehr langsam
-      })
+                          type = "break_down") # mögliche Alternative: 
+      })                                       # type = "break_down_interactions"
     output$probability <- renderUI(
       paste("Die Wahrscheinlichkeit für eine Sepsis beträgt",
             round(prediction * 100, 1),
@@ -74,7 +76,8 @@ server <- function(input, output, session){
                   HospAdmTime) %>%
         unique() 
     })
-    output$tsplot <- renderPlot(ggplot(new_data_obs, aes_string(x = 'Hour', y = input$variable)) +
+    output$tsplot <- renderPlot(ggplot(new_data_obs, 
+                                       aes_string(x = 'Hour', y = input$variable)) +
                                   geom_line() +
                                   geom_point() +
                                   geom_smooth(method = "lm", se = FALSE) +

@@ -30,7 +30,8 @@ header-includes:
   - \usepackage{xcolor}
   - \usepackage{hyphenat}
   - \hyphenation{Ent-wicklung Event-rate Intensiv-aufent-halts er-reicht
-        Intensiv-station}
+        Intensiv-station Intensiv-stationen Visua-lisierung er-klärender
+        Datenaufberei-tung}
   - \floatplacement{figure}{H}
 bibliography: bibliography.bib
 csl: din-1505-2.csl
@@ -69,6 +70,7 @@ library(naniar)
 library(ConfusionTableR)
 library(png)
 library(randomForestExplainer)
+library(DALEX)
 ```
 
 \newpage
@@ -145,8 +147,8 @@ Beobachtungen zu
               decimal.mark = ",")` 
 Intensivpatienten aus zwei verschiedenen US-amerikanischen Krankenhäusern 
 verwendet. Die Daten umfassen neben einigen demografischen und administrativen
-Basisangaben zum Fall acht Vitalparameter (Variablen 3-10) und 26 Blutwerte
-(Variablen 11-36), siehe Tabelle \ref{vars_table} im Anhang. 
+Basisangaben zum Fall acht Vitalparameter und 26 Blutwerte, siehe Tabelle
+\ref{vars_table} im Anhang. 
 \newline
 Die Erfassung erfolgte stündlich; kontinuierlich gemessene Werte wurden gemittelt.
 
@@ -158,7 +160,7 @@ Sepsispatient einem zeitlichen Vorsprung von drei bis sechs Stunden entspricht.
 Dabei ergibt sich ein Zeitfenster kleiner sechs Stunden, wenn der Ausbruch 
 innerhalb der ersten sechs Stunden nach Aufnahme auf die Intensivstation erfolgt,
 wobei Ausbrüche innerhalb weniger als vier Stunden aus den Daten entfernt wurden.
-Als Ausbruchzeitpunkt gilt hierbei das Minimum von
+Als Ausbruchszeitpunkt gilt hierbei das Minimum von
 \newline
 - dem Zeitpunkt des Auftretens einer Organdysfunktion gemäß Sequential Organ
 Failure Assessment (SOFA) 
@@ -187,7 +189,7 @@ Bei Betrachtung der Zusammenfassung des Datensatzes fielen zwei Fehler auf, die
 wie folgt bereinigt wurden:
 
 1. *FiO2* (inspiratorische Sauerstofffraktion) drückt einen Anteil aus und muss 
-daher zwischen 0 und 1 liegen. Werte außerhalb dieses Bereichs wurden daher 
+daher zwischen 0 und 1 liegen. Werte außerhalb dieses Bereichs wurden deshalb 
 entfernt.
 
 2. *HospAdmTime*, die Zeit zwischen Hospitalisierung und Verlegung auf die 
@@ -328,7 +330,7 @@ p
 rm(melt_sample, p)
 ```
 
-Da Temperatur und Blutwerte häufig nur einmal täglich bestimmt wurden, werden 
+Da Temperatur und Blutwerte häufig nur einmal täglich bestimmt werden, werden 
 diese bei fehlenden Werten bis zu 24 Stunden fortgeschrieben (LOCF).
 
 ```{r LOCF imputation, warnings = FALSE}
@@ -384,9 +386,11 @@ die jeweiligen Modelle erforderlich, zwei Vorgehensweisen miteinander verglichen
 Variablen) und eine Imputation mit der im R-Paket *randomForest* implementierten 
 Methode nach Breiman, die fehlende Werte iterativ anhand von Proximity-Matrizen
 in Random Forests konstruiert [@Breiman]. Auf multiple Imputation wird verzichtet,
-um den gezielt verkleinerten Datensatz nicht wieder erheblich zu vergrößern.
-Dennoch ist festzuhalten, dass multiple Imputation eine mögliche Alternative
-darstellt, die hinsichtlich einer eventuellen Verzerrung Vorteile aufweist.
+um den anfangs gezielt verkleinerten Datensatz nicht wieder erheblich zu
+vergrößern und weil auch diese Methode MAR voraussetzt, sodass die vermutete 
+hauptsächliche Schwachstelle damit nicht behoben wäre. Dennoch ist festzuhalten,
+dass multiple Imputation eine mögliche Alternative darstellt, die hinsichtlich
+einer eventuellen Verzerrung Vorteile aufweisen kann.
 
 Zum anderen müssen die longitudinalen Daten für die Anwendung baumbasierter 
 Verfahren zu je einer Beobachtung pro Patient zusammengefasst werden. Dazu werden 
@@ -413,7 +417,7 @@ patientenindividuelle Slope als Prädiktor verwendet. Dabei wird für
 Nicht-Sepsispatienten der gesamte Beobachtungszeitraum einbezogen und für
 Sepsispatienten der Zeitraum bis zum ersten positiven Outcome.
 \newline Dies entspricht einer regelmäßigen Klassifizierung der Patienten anhand 
-aller ihrer bis dahin vorliegenden Parameter.
+aller ihrer bis zu diesem Zeitüunkt vorliegenden Parameter.
 
 Die drei entstandenen Datensätze werden anschließend jeweils in einen Trainings-
 und Validierungsdatensatz mit 75 % der Beobachtungen und einen Testdatensatz mit
@@ -573,9 +577,9 @@ ctrl <- trainControl(method = "cv", number = 5,
 
 Es wird ein Entscheidungsbaum mit dem CART-Algorithmus (R-Paket *rpart*) erstellt.
 Da CART mit fehlenden Werten mittels Surrogate Splits automatisch umgehen kann,
-ist kein Preprocessing notwendig. Das Tuning erfolgt mittels der
+ist kein Preprocessing notwendig. Das Tuning erfolgt mit den
 *caret*-Standardeinstellungen, d. h. es wird ein Tunegrid der Länge drei für den
-Complexity-Parameter (*cp*) basierend auf der *rpart*-Implementierung verwendet.
+Complexity-Parameter *cp* basierend auf der *rpart*-Implementierung verwendet.
 
 ```{r cart model ds1}
 set.seed(12345)
@@ -1069,8 +1073,8 @@ Recall aber sehr gut ist (mit
             decimal.mark = ",")`
 der zweitbeste Wert).
 
-Für eine klinische Anwendung empfiehlt sich demzufolge von den untersuchten Modellen
-vor allem die Gradient Boosting Machine in Verbindung mit einem Regressionsansatz.
+Von den untersuchten Modellen empfiehlt sich demzufolge vor allem die Gradient
+Boosting Machine in Verbindung mit einem Regressionsansatz.
 
 Wird ein weniger rechenintensives oder besser interpretierbares Verfahren benötigt,
 so stellt der CART-Baum auf dem Regressionsdatensatz insbesondere dann eine gute
@@ -1468,28 +1472,28 @@ Bei dem auf dem Testdatensatz wegen seiner sehr hohen Spezifität positiv
 aufgefallenen Modell, dem Random Forest nach Imputation auf dem
 Regressionsdatensatz, zeichnet sich ein klareres Bild ab. Hier ist der Slope des
 endtidalen Kohlendioxids (*EtCO2*) die mit Abstand zweitwichtigste Variable.
-Zu beachten ist auch, dass an dritter Stelle der Slope des 
-$\nobreak (*Bilirubin_total*)$ folgt (der Variable, die im Random Forest des
-Onset-Datensatzes als wichtigste bestimmt wurde), denn wie aus Abbildung
-\ref{cor_plot} ersichtlich ist, korreliert *Bilirubin_total* vollständig mit dem
-aus unseren Daten entfernten *Bilirubin_direct* und letzteres korreliert deutlich
-negativ mit *EtCO2*. Der Korrelationskoeffizient für *EtCO2* und *Bilirubin_total*
-selbst ist wenig aussagekräftig, weil es kaum Beobachtungen gibt, die für beide
-Variablen Werte aufweisen. Wie im Kapitel zur Datenexploration bereits erwähnt, 
-ist es möglich, dass für einen Split nicht die eigentlich relevante Variable
-herangezogen wird, sondern eine mit ihr korrelierte. Das könnte bedeuten, dass 
-nur einer der beiden hier diskutierten Prädiktoren wirklich bedeutsam für den
-Random Forest ist, dies aber in umso höherem Maße. Falls dies zutrifft, ist zu
-erwarten, dass entweder ein negativer *EtCO2*-Slope (Verringerung des Werts) und
-ein positiver *Bilirubin_total*-Slope (Erhöhung des Werts) die
-Vorhersagewahrscheinlichkeit einer Sepsis erhöhen oder genau andersherum. 
-Um dies zu untersuchen, soll ein Vorhersage-Interaktions-Plot der beiden Variablen
-auf dem Modell betrachtet werden. Eine Funktion, um einen solchen Plot zu
-erstellen, ist im R-Paket *randomForestExplainer* enthalten. Allerdings
-funktioniert diese nicht für *ranger*-Objekte, die aus einem *caret::train*-Objekt
-extrahiert wurden. Daher wurde der Code hier leicht modifiziert. Die Änderungen
-befinden sich in den Codezeilen 12, 13 und 44 (wobei die Änderung in Zeile 44 
-nicht zwingend notwendig ist):
+Zu beachten ist auch, dass an dritter Stelle der Slope des *Bilirubin_total* 
+folgt (der Variable, die im Random Forest des Onset-Datensatzes als wichtigste
+bestimmt wurde), denn wie aus Abbildung \ref{cor_plot} ersichtlich ist, korreliert
+*Bilirubin_total* vollständig mit dem aus unseren Daten entfernten
+*Bilirubin_direct* und letzteres korreliert deutlich negativ mit *EtCO2*. Der
+Korrelationskoeffizient für *EtCO2* und *Bilirubin_total* selbst ist wenig
+aussagekräftig, weil es kaum Beobachtungen gibt, die für beide Variablen Werte
+aufweisen. Wie im Kapitel zur Datenexploration bereits erwähnt, ist es möglich,
+dass für einen Split nicht die eigentlich relevante Variable herangezogen wird,
+sondern eine mit ihr korrelierende. Das könnte bedeuten, dass nur einer der beiden
+hier diskutierten Prädiktoren wirklich bedeutsam für den Random Forest ist, dies
+aber in umso höherem Maße. Falls dies zutrifft, ist zu erwarten, dass entweder 
+ein negativer *EtCO2*-Slope (Verringerung des Werts) und ein positiver
+*Bilirubin_total*-Slope (Erhöhung des Werts) die Vorhersagewahrscheinlichkeit 
+einer Sepsis erhöhen oder genau andersherum. Um dies zu untersuchen, soll ein
+Vorhersage-Interaktions-Plot der beiden Variablen auf dem Modell betrachtet 
+werden. Eine Funktion, um einen solchen Plot zu erstellen, ist im R-Paket
+*randomForestExplainer* enthalten. Allerdings funktioniert diese nicht für
+*ranger*-Objekte, die aus einem *caret::train*-Objekt extrahiert wurden. Daher
+wurde der Code hier leicht modifiziert. Die Änderungen befinden sich in den
+Codezeilen 12, 13 und 44 (wobei die Änderung in Zeile 44 nicht zwingend notwendig
+ist):
 
 ```{r plot_predict_interaction function, attr.source = ".numberLines", include = TRUE, echo = TRUE}
 plot_predict_interaction.caret_ranger <-
@@ -1665,6 +1669,71 @@ plot(varImp(gbm_ds3), top = 20, xlab = "", main = "GBM Regression")
 
 \newpage
 
+## Deployment und Testbetrieb
+
+Für den regelmäßigen klinischen Einsatz eines der erstellten Modelle muss zum
+einen die  automatiserte Datenbereitstellung sichergestellt werden, d. h. das
+Auslesen aus den Quellsystemen (wie zum Beispiel Krankenhaus- und
+Laborinformationssystem) und die Datenaufbereitung (je nach Ansatz zum Beispiel
+Erstellung des Regressionsdatensatzes oder Imputation). Zum anderen müssen die
+Ergebnisse der Klassifizierung in geeigneter Weise verfügbar gemacht werden -
+beispielsweise durch die regelmäßige Ausgabe einer Liste aller gefährdeten (d. h.
+positiv klassifzierten) Patienten oder mittels einer Oberfläche zur Abfrage der
+aktuellen Sepsiswahrscheinlichkeit einzelner Patienten. Idealerweise würden diese 
+Informationen in bereits bestehende Anwendungen wie eine interaktive
+Visitenliste oder ein Infektionsdashboard eingebunden.
+
+Im Rahmen dieser Arbeit ist eine Shiny-App entstanden, die eine Möglichkeit zur 
+Visualisierung der Ergebnisse aufzeigt. Nach Auswahl eines Modells und eines
+Patienten werden die Wahrscheinlichkeit für eine Sepsis dieses Patienten und das
+zugehörige Break down-Profil angezeigt. Letzteres visualisiert, wie sich die 
+durchschnittliche Sepsiswahrscheinlichkeit (bezogen auf die Gesamtheit der
+Trainingsdaten) heruntergebrochen auf den additiven Einfluss einzelner
+Prädiktoren für den konkreten Patienten erhöht oder verringert (basierend auf 
+@Biecek). Außerdem werden die zeitlich unveränderlichen Basisdaten zum Patienten
+und die Zeitreihe einer auszuwählenden Variablen eingeblendet.
+\newline
+Vorausgesetzt werden ein dem verwendeten Ansatz entsprechend aufbereiteter
+Datensatz, ein Datensatz mit den Einzelbeobachtungen zu den Patienten, ein
+trainiertes Modell und der zugehörige DALEX-Explainer.
+\newline
+Mit dem R-Paket *DALEX* erzeugte Explainer ermöglichen die Berechnung verschiedener
+erklärender Elemente zu unterschiedlichen Modellen. Eines dieser Elemente ist das
+beschriebene Break down-Profil.
+
+Durch die Möglichkeit, nicht nur das Ergebnis der Vorhersage 
+(Sepsiswahrscheinlichkeit) anzuzeigen, sondern auch in einem gewissen Maße zu
+analysieren, wie dieses zustande kommt, ist die App auch für einen Testbetrieb 
+zur weiteren Evaluierung und gegebenenfalls Verbesserung der Modelle geeignet. 
+Zu diesem Zweck kann es sinnvoll sein, mehrere Modelle zu integrieren, wohingegen
+man sich im Produktiveinsatz auf ein Modell beschränken würde.
+\newline
+In die vorliegende App wurden die Gradient Boosting Machine und der Random Forest
+nach Imputation in Verbindung mit dem Regressionsansatz aufgenommen und der 
+Testdatensatz eingebunden.
+
+```{r model explainers}
+# predict-Funktion zur Berechnung der Break downs
+predict.function <- function(model, new_observation) {
+  predict(model, new_observation, type = "prob")[,1] # positiv = Event
+}
+
+# Explainer für ausgewählte Modelle
+explain_gbm_ds3 <- DALEX::explain(gbm_ds3,
+                           data = train3[,3:40],
+                           y = case_when(train3$Sepsis == "positiv" ~ 1, 
+                                         TRUE ~ 0), # benötigt numerischen Outcome
+                           label = "GBM")
+
+explain_rf_ds3 <- DALEX::explain(rf_ds3,
+                           data = train3_imputed[,3:40],
+                           y = case_when(train3_imputed$Sepsis == "positiv" ~ 1, 
+                                         TRUE ~ 0), # benötigt numerischen Outcome
+                           label = "Random Forest")
+```
+
+\newpage
+
 # Zusammenfassung und Ausblick
 
 Wir haben gesehen, dass es sich für eine Sepsisprädiktion anbietet, Blutwerte 
@@ -1696,11 +1765,6 @@ unterschiedlichen Quellen getestet werden, um zu beurteilen, wie gut sich die
 Ergebnisse verallgemeinern lassen. Insbesondere die Problematik fehlender Werte
 könnte sich auf verschiedenen Datensätzen sehr unterschiedlich auswirken und vor
 allem die Random Forests stark beeinflussen.
-\newline
-Interessant wäre hierbei auch, die Daten mehrfach zu zuvor festgelegten 
-Zeitpunkten zu exportieren und bis zu diesem Stand zu analysieren, sodass die 
-Notwendigkeit entfällt, wie in dieser Arbeit das Ende des Beobachtungszeitraums
-für die Nicht-Sepsispatienten zufällig zu wählen.
 
 Unabhängig davon, wie gut sich die Modelle verallgemeinern lassen, ist eine 
 weitere Verbesserung der Sensitivität, ohne dass es zu einer deutlichen
@@ -1738,7 +1802,11 @@ knitr::kable(subset(data.frame(sessioninfo::package_info()),
 knitr::kable(var_info, booktabs = T,
              caption = "\\label{vars_table}Datensatzbeschreibung (Variablen)") %>%
   kable_styling(latex_options = c("striped", "scale_down"),
-                position = "center")
+                position = "center") %>% 
+  kableExtra::pack_rows("Technische Angaben", 1, 2) %>%
+  kableExtra::pack_rows("Vitalparameter", 3, 10) %>%
+  kableExtra::pack_rows("Blutwerte", 11, 36) %>% 
+  kableExtra::pack_rows("Basisdaten & Outcome", 37, 44) 
 ```
 
 \newpage
