@@ -88,27 +88,27 @@ vor allem in der frühen Erkrankungsphase unspezifisch und vielfältig, was eine
 rechtzeitige Diagnose erschwert.
 
 In dieser Arbeit werden daher Möglichkeiten untersucht, eine Sepsis anhand
-diverser Blutwerte und Vitalparameter, die im Rahmen von Intensivbehandlungen 
+von Blutwerten und Vitalparametern, die im Rahmen von Intensivbehandlungen 
 teils regelmäßig, teils nach Bedarf erhoben werden, mittels prädiktiver Modelle 
 bereits zu erkennen, bevor sie klinisch diagnostiziert wird. Da der Einsatz von
 Machine Learning-Algorithmen zur medizinischen Entscheidungsfindung nicht überall 
 möglich und gewünscht ist, wird neben der Entwicklung von Vorhersagemodellen
-auch die Frage untersucht, ob Entscheidungsregeln zur Unterstützung ärztlicher
-Entscheidungen ableitbar sind.
+auch die Frage untersucht, ob aus den Modellen Entscheidungsregeln zur
+Unterstützung ärztlicher Entscheidungen abzulesen sind.
 
 Die bearbeitete Fragestellung lässt sich wie folgt zusammenfassen: 
 \newline
 1. Welche Entscheidungskriterien hinsichtlich einer Klassifizierung von
-Intensivpatienten in die Kategorien "wird eine Sepsis entwickeln" und "wird keine
-Sepsis entwickeln" lassen sich mittels einzelner Entscheidungsbäume ableiten?
+Intensivpatienten in die Kategorien "Sepsispatient" und "Nicht-Sepsispatient"
+lassen sich mittels einzelner Entscheidungsbäume ableiten?
 \newline
 2. Welches baumbasierte Modell ist am besten geeignet, um aus demografischen 
 Daten, Blutwerten und Vitalparametern eines Intensivpatienten vorherzusagen, ob
-dieser zeitnah an einer Sepsis erkranken wird beziehungsweise bereits unerkannt
-erkrankt ist?
+dieser an einer Sepsis erkrankt ist beziehungsweise gerade dabei ist, eine Sepsis
+zu entwickeln?
 \newline
-Hierfür werden exemplarisch CARTs (Entscheidungsbäume), Random Forests (Bagging)
-und GBMs (Boosting) untersucht.
+Für dieses binäre Klassifizierungsproblem werden exemplarisch CARTs
+(Entscheidungsbäume), Random Forests (Bagging) und GBMs (Boosting) untersucht.
 
 Die verwendeten Daten stammen aus dem unter *Open Database License (ODbL)* 
 verfügbaren Kaggle-Datensatz *Dataset.csv* [@Binitagiri; @Reyna]. 
@@ -117,9 +117,11 @@ verfügbaren Kaggle-Datensatz *Dataset.csv* [@Binitagiri; @Reyna].
 
 # Datenexploration und -bereinigung
 
-```{r loading data, cache = TRUE}
+```{r loading data}
 data_complete <- read.csv(here("data/Dataset.csv"))
+```
 
+```{r loading variable description}
 var_info <- read.csv2(
   here("data/Datensatzbeschreibung.csv")
   )
@@ -417,7 +419,7 @@ patientenindividuelle Slope als Prädiktor verwendet. Dabei wird für
 Nicht-Sepsispatienten der gesamte Beobachtungszeitraum einbezogen und für
 Sepsispatienten der Zeitraum bis zum ersten positiven Outcome.
 \newline Dies entspricht einer regelmäßigen Klassifizierung der Patienten anhand 
-aller ihrer bis zu diesem Zeitüunkt vorliegenden Parameter.
+aller ihrer bis zu diesem Zeitpunkt vorliegenden Parameter.
 
 Die drei entstandenen Datensätze werden anschließend jeweils in einen Trainings-
 und Validierungsdatensatz mit 75 % der Beobachtungen und einen Testdatensatz mit
@@ -594,8 +596,14 @@ cart_ds1 <- train(x = train1[,4:41],
 Das beste Modell ergibt sich mit: 
 `r knitr::kable(cart_ds1$bestTune, row.names = FALSE)`
 
+Abbildung \ref{cart_ds1} zeigt den entstandenen Baum. In den Blättern sind die 
+vorhergesagte Klasse, die zugehörige Wahrscheinlichkeit (d. h. der Anteil der 
+korrekt klassifizierten Beobachtungen innerhalb des Blattes) und der prozentuale
+Anteil der Beobachtungen in dem Blatt bezogen auf alle Beobachtungen des 
+Trainingsdatensatzes angegeben.
+
 ```{r cart model results ds1, include = TRUE, fig.cap="\\label{cart_ds1}Entscheidungsbaum Baseline-Datensatz"}
-rpart.plot(cart_ds1$finalModel, type = 5, box.palette = "RdBu")
+rpart.plot(cart_ds1$finalModel, type = 5, extra = 108, box.palette = "RdBu")
 ```
 
 Dass die Zeitspanne zwischen Krankenhausaufnahme und Verlegung auf die ITS
@@ -619,7 +627,7 @@ cart_adj_ds1 <- prune(cart_adj_ds1$finalModel, cp = 0.02)
 ```
 
 ```{r cart model adjusted results ds1, include = TRUE, fig.cap="Entscheidungsbaum Baseline-Datensatz angepasst"}
-rpart.plot(cart_adj_ds1, type = 5, box.palette = "RdBu")
+rpart.plot(cart_adj_ds1, type = 5, extra = 108, box.palette = "RdBu")
 ```
 
 Des Weiteren werden Random Forests trainiert. Da diese Methode nicht mit fehlenden
@@ -757,7 +765,7 @@ Aus dem CART-Algorithmus ergibt sich das beste Modell mit:
 `r knitr::kable(cart_ds2$bestTune, row.names = FALSE)`
 
 ```{r cart model results ds2, include = TRUE, fig.cap="\\label{cart_ds2}Entscheidungsbaum Onset-Datensatz"}
-rpart.plot(cart_ds2$finalModel, type = 5, box.palette = "RdBu")
+rpart.plot(cart_ds2$finalModel, type = 5, extra = 108, box.palette = "RdBu")
 ```
 
 Ähnlich wie beim Baseline-Ansatz wird hier nur eine Prädiktorvariable verwendet - in diesem Fall die Länge des Intensivaufenthalts (*ICULOS*). Analog zum Vorgehen im
@@ -775,7 +783,7 @@ cart_adj_ds2 <- train(x = train2[,4:40],
 ```
 
 ```{r cart model adjusted results ds2, include = TRUE, fig.cap="Entscheidungsbaum Onset-Datensatz angepasst"}
-rpart.plot(cart_adj_ds2$finalModel, type = 5, box.palette = "RdBu")
+rpart.plot(cart_adj_ds2$finalModel, type = 5, extra = 108, box.palette = "RdBu")
 ```
 
 Es folgen die Random Forests - zunächst mit Imputation nach Breiman.
@@ -875,7 +883,7 @@ cart_ds3 <- train(x = train3[,3:40],
  `r knitr::kable(cart_ds3$bestTune, row.names = FALSE)`
 
 ```{r cart model results ds3, include = TRUE, fig.cap="\\label{cart_ds3}Entscheidungsbaum Regressionsdatensatz"}
-rpart.plot(cart_ds3$finalModel, type = 5, box.palette = "RdBu")
+rpart.plot(cart_ds3$finalModel, type = 5, extra = 108, box.palette = "RdBu")
 ```
 
 Wiederum wird im finalen Modell nur die Dauer des Intensivaufenthalts als
@@ -893,7 +901,7 @@ cart_adj_ds3 <- train(x = train3[,-c(1,2,8)],
 ```
 
 ```{r cart model adjusted results ds3, include = TRUE, fig.cap="\\label{cart_adj_ds3}Entscheidungsbaum Regressionsdatensatz angepasst"}
-rpart.plot(cart_adj_ds3$finalModel, type = 5, box.palette = "RdBu")
+rpart.plot(cart_adj_ds3$finalModel, type = 5, extra = 108, box.palette = "RdBu")
 ```
 
 Random Forests mit Imputation führen zu dieser optimalen Parameterwahl:
@@ -1041,18 +1049,24 @@ dotplot(results, cex.axis = 1)
 Es stellt sich heraus, dass gemessen an der F1-Metrik die Gradient Boosting 
 Machine auf dem Regressinsdatensatz das erfolgreichste Modell ist, gefolgt von 
 dem CART-Modell und dem Random Forest nach Imputation auf dem gleichen Datensatz.
+\newline
 Die Modelle für den Baseline-Datensatz erreichen die schlechtesten Ergebnisse. 
 Dies ist wenig überraschend, wenn man bedenkt, dass zur Baseline der größte
-zeitliche Abstand zum Event besteht. Auch der Erfolg des Regressionsdatensatzes
-leuchtet ein, da hier die meisten Informationen im Sinne des zeitlichen Verlaufs 
-der Werte eingehen. Unerwartet kommt hingegen das bessere Abschneiden des einzelnen
+zeitliche Abstand zum Event besteht. 
+\newline
+Auch der Erfolg des Regressionsdatensatzes leuchtet ein, da hier die meisten
+Informationen eingehen. Der Ansatz, nicht die Absolutwerte, sondern deren
+Veränderung zu betrachten, ähnelt im Übrigen der Sepsis-3-Definition, die ebenso
+die Veränderung im SOFA-Score, nicht den Absolutwert berücksichtigt.
+\newline
+Unerwartet kommt hingegen das bessere Abschneiden des einzelnen
 Entscheidungsbaumes gegenüber den Random Forests. Allerdings ist der Unterschied 
 zwischen dem Entscheidungsbaum und dem Random Forest nach Imputation auf dem 
 Regressionsdatensatz sehr gering (Differenz der mittleren F1-Metrik 
 `r prettyNum(round(summary(results)$statistics$F[9,4] -
-                  summary(results)$statistics$F[10,4], 
-                3),
-          decimal.mark = ",")`). 
+                   summary(results)$statistics$F[10,4], 
+                  3),
+            decimal.mark = ",")`). 
 Außerdem kommt hier sicherlich die Stärke des CART-Algorithmus im Umgang mit
 fehlenden Werten durch die Verwendung von Surrogate Splits zum Tragen. Insbesondere
 bei Vorliegen eines MNAR-Mechanismus, der hier wie weiter oben erläutert nicht
@@ -1448,7 +1462,7 @@ eineinhalb Stunden) oder erst spät (nach mehr als 45 Stunden) auf die
 Intensivstation verlegt wurde, ist in einem schlechteren Zustand als die übrigen
 Intensivpatienten und hat möglicherweise deshalb ein höheres Sepsisrisiko.
 
-Die große Bedeutung der beiden Prädiktoren kann auch stark davon beinflusst sein,
+Die große Bedeutung der beiden Prädiktoren kann auch stark davon beeinflusst sein,
 dass es sich um zwei von insgesamt nur vier (zusammen mit Alter und Geschlecht) 
 vollständigen Variablen handelt.
 
@@ -1608,8 +1622,19 @@ plot_predict_interaction.caret_ranger(rf_ds3$finalModel,train3_imputed,
 ```
 
 Tatsächlich ist zu erkennen, dass die Vorhersagewahrscheinlichkeit für eine Sepsis
-am höchsten ist, wenn der *Bilirubin_total*-Wert steigt, während der *EtCO2*-Wert
+am höchsten ist, wenn der *Bilirubin_total*-Wert steigt und der *EtCO2*-Wert
 abnimmt.
+\newline
+Medizinisch wird eine Abnahme des endtidalen Kohlendioxidwerts eher mit einer 
+Hyperventilation in der Frühphase einer Sepsis in Verbindung gebracht, ein
+Anstieg des Bilirubin-Werts hingegen mit einem Leberversagen in der Spätphase der 
+Erkrankung. Insofern erscheint Bilirubin zur frühen Detektion von Sepsen
+nicht gut geeignet. Stellt man allerdings einen Bilirubinanstieg fest, nachdem 
+zuvor schon der Kohlendioxidwert gesunken war, so kann dies als ernster Hinweis
+auf eine fortschreitende Sepsis angesehen werden.\footnote{ \label{note1} basierend
+auf einer Diskussion mit Dr. med. Ulf Dennler, Leiter der Stabsstelle Strategisches
+Medizincontrolling am Universitätsklinikum Ulm, Intensivmediziner, dem ich hiermit
+für seinen Beitrag danke.}
 
 Die CART-Bäume wurden hauptsächlich mit dem Ziel angepasst, Entscheidungsregeln
 beziehungsweise -pfade abzuleiten. Da die aus dem Tuning entstandenen Bäume nur 
@@ -1633,11 +1658,7 @@ mit Vor- und Begleiterkrankungen betrachtet werden müssen. So ist beispielsweis
 eine Änderung des Glukosewerts bei einem Diabetiker anders zu beurteilen als bei
 einem Nicht-Diabetiker. Zudem können die Werte erheblich durch medikamentöse
 Behandlungen beeinflusst sein, zu denen die Daten aber keine Informationen
-enthalten.
-\footnote{Die medizinische Einschätzung dieses Entscheidungsbaumes basiert auf 
-einer Diskussion mit Dr. med. Ulf Dennler, Leiter der Stabsstelle Strategisches 
-Medizincontrolling am Universitätsklinikum Ulm, Intensivmediziner, dem ich hiermit
-für seinen Beitrag danke.}
+enthalten.\footnote{ wie \ref{note1}}
 
 \newpage
 
@@ -1798,7 +1819,7 @@ knitr::kable(subset(data.frame(sessioninfo::package_info()),
               col.names = "Version") 
 ```
 
-```{r vars description, include = TRUE}
+```{r vars description, include = TRUE, cache = FALSE}
 knitr::kable(var_info, booktabs = T,
              caption = "\\label{vars_table}Datensatzbeschreibung (Variablen)") %>%
   kable_styling(latex_options = c("striped", "scale_down"),
