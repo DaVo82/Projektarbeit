@@ -21,7 +21,7 @@ Nr.;Variablenname;Datentyp;Beschreibung
 20;Calcium;num;Calcium (mg/dl)
 21;Chloride;num;Chlorid (mmol/l)
 22;Creatinine;num;Kreatinin (mg/dl)
-23;Bilirubin_direct;num;Direkts Bilirubin (mg/dl)
+23;Bilirubin_direct;num;Direktes Bilirubin (mg/dl)
 24;Glucose;num;Blutzucker (Glukose) (mg/dl)
 25;Lactate;num;Laktat (mg/dl)
 26;Magnesium;num;Magnesium (mmol/dl)
