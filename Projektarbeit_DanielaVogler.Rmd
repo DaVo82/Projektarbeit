@@ -552,9 +552,10 @@ Je höher die Sensitivität, desto mehr Patienten können frühzeitig behandelt
 werden, je niedriger die Spezifität, desto mehr Patienten werden möglicherweise
 aufgrund der Klassifizierung unnötigen Therapien unterzogen. Eine häufige Wahl 
 ist in solchen Situationen die *Area under the Curve (ROC)*. Für stark
-unausgewogene Daten sind aber Metriken, die auf Precision und Recall beruhen, von
-Vorteil. Daher bieten sich hier die *Area under the Precision Recall Curve (AUC)* 
-und die F1-Metrik (harmonisches Mittel aus Precision und Recall) an. 
+unausgewogene Daten (mit niedriger Eventrate) sind aber Metriken, die auf 
+Precision und Recall beruhen, von Vorteil. Daher bieten sich hier die 
+*Area under the Precision Recall Curve (AUC)* und die F1-Metrik (harmonisches
+Mittel aus Precision und Recall) an. [@Brownlee]
 
 Wir werden später beim Modellvergleich sehen, dass die AUC-Metrik im Vergleich zur
 F1-Metrik falsch positive Klassifizierungen stärker bestraft und dafür eine
