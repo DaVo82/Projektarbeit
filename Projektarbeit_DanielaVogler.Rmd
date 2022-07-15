@@ -563,7 +563,7 @@ die F1-Metrik gefallen. Diese berücksichtigt gleichermaßen den Anteil der rich
 positiven an den Events als auch den Anteil der richtig positiven an den insgesamt
 positiv klassifizierten Beobachtungen, kann aber leicht so verallgemeinert werden,
 dass entweder der Recall (= Sensitivität) oder die Precision (deutsch: Relevanz)
-stärker gewichtet werden. Eine flexible Anpassung beispielsweise im Rahmen einer
+stärker gewichtet wird. Eine flexible Anpassung beispielsweise im Rahmen einer
 späteren klinischen Anwendung ist also gegeben.
 
 ```{r caret models control}
@@ -1415,8 +1415,8 @@ Anhand dieser Kriterien sind folgende Modelle eindeutig auszuschließen:
 - Random Forest (imputiert) Onset
 
 Im Vergleich zu den Ergebnissen der Kreuzvalidierung fällt die deutlich schlechtere
-Sensitivität (= Recall) des Random Forests auf dem imputierten Onset-Datensatz auf,
-aufgrund derer dieses Modell nun aus den Empfehlungen herausfällt.
+Sensitivität des Random Forests auf dem imputierten Onset-Datensatz auf, aufgrund
+derer dieses Modell nun aus den Empfehlungen herausfällt.
 
 Hinsichtlich des bisherigen Favoriten, der Gradient Boosting Machine für den 
 Regressionsdatensatz, ist festzuhalten, dass das Verhältnis FP/TP mit
