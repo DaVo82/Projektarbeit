@@ -93,8 +93,8 @@ teils regelmäßig, teils nach Bedarf erhoben werden, mittels prädiktiver Model
 bereits zu erkennen, bevor sie klinisch diagnostiziert wird. Da der Einsatz von
 Machine Learning-Algorithmen zur medizinischen Entscheidungsfindung nicht überall 
 möglich und gewünscht ist, wird neben der Entwicklung von Vorhersagemodellen
-auch die Frage untersucht, ob aus den Modellen Entscheidungsregeln zur
-Unterstützung ärztlicher Entscheidungen abzulesen sind.
+auch die Frage untersucht, ob aus den Modellen Entscheidungsregeln zur nicht
+maschinellen Unterstützung ärztlicher Entscheidungen abzulesen sind.
 
 Die bearbeitete Fragestellung lässt sich wie folgt zusammenfassen: 
 \newline
@@ -262,9 +262,8 @@ Interpretation der Entscheidungskriterien berücksichtigt werden. Es ist möglic
 dass nicht die eigentlich relevante Variable für einen Split herangezogen wird,
 sondern eine stark mit ihr korrelierende.
 
-Bei Variablen mit vollständigen linearen Zusammenhang 
-(Korrelationskoeffizient +/- 1) ist eine Variablenselektion aber auf jeden Fall
-angeraten:
+Bei Vorliegen eines vollständigen linearen Zusammenhangs 
+(Korrelationskoeffizient +/- 1) soll dennoch eine Variablenselektion erfolgen:
 
 *Hour* dient nur zur Information und soll nicht als Einflussvariable verwendet
 werden. Daher kann sie hier vernachlässigt werden.
@@ -563,9 +562,9 @@ niedrige Detektionsrate in Kauf nimmt. Für diese Arbeit ist die Entscheidung f�
 die F1-Metrik gefallen. Diese berücksichtigt gleichermaßen den Anteil der richtig
 positiven an den Events als auch den Anteil der richtig positiven an den insgesamt
 positiv klassifizierten Beobachtungen, kann aber leicht so verallgemeinert werden,
-dass entweder der Recall (= Sensitivität) oder die Präzision stärker gewichtet
-werden. Eine flexible Anpassung beispielsweise im Rahmen einer späteren klinischen
-Anwendung ist also gegeben.
+dass entweder der Recall (= Sensitivität) oder die Precision (deutsch: Relevanz)
+stärker gewichtet werden. Eine flexible Anpassung beispielsweise im Rahmen einer
+späteren klinischen Anwendung ist also gegeben.
 
 ```{r caret models control}
 set.seed(12345)
@@ -610,10 +609,11 @@ rpart.plot(cart_ds1$finalModel, type = 5, extra = 108, box.palette = "RdBu")
 Dass die Zeitspanne zwischen Krankenhausaufnahme und Verlegung auf die ITS
 $\nobreak (*HospAdmTime*)$ eine Rolle spielt, erscheint einleuchtend. Da hier 
 jedoch gar keine weiteren Variablen herangezogen werden, wird noch ein Baum ohne
-*HospAdmTime* angepasst. Dieser wird mit Defaultparametern allerdings so tief, 
-dass er nachträglich geprunt werden muss, um visuelle Erkenntnisse aus der
-Baumstruktur zu ermöglichen. Der geeignete Complexity-Parameter wurde durch
-manuelles Ausprobieren bestimmt und auf cp = 0,02 gesetzt. Es ergibt sich:
+*HospAdmTime* angepasst, um weitere Einblicke zu generieren. Dieser wird mit
+Defaultparametern allerdings so tief, dass er nachträglich geprunt werden muss, 
+um visuelle Erkenntnisse aus der Baumstruktur zu ermöglichen. Der geeignete
+Complexity-Parameter wurde durch manuelles Ausprobieren bestimmt und auf cp = 0,02
+gesetzt. Es ergibt sich:
 
 ```{r cart model adjusted ds1}
 set.seed(12345)
@@ -1082,7 +1082,7 @@ jeweils Null sind.
 Gemessen an der AUC-Metrik (bezogen auf die Precision Recall-Kurve) ergibt sich 
 ein ähnliches Bild. Der deutlichste Unterschied besteht im Ranking des CART-Modells
 des Regressionsdatensatzes. Dieses fällt von Platz 2 auf Platz 8. Hier wirkt sich 
-aus, dass die Präzision im Vergleich zu den anderen Modellen eher schlecht, der 
+aus, dass die Precision im Vergleich zu den anderen Modellen eher schlecht, der 
 Recall aber sehr gut ist (mit 
 `r prettyNum(round(summary(results)$statistics$Recall[9,4], 3), 
             decimal.mark = ",")`
@@ -1093,7 +1093,7 @@ Boosting Machine in Verbindung mit einem Regressionsansatz.
 
 Wird ein weniger rechenintensives oder besser interpretierbares Verfahren benötigt,
 so stellt der CART-Baum auf dem Regressionsdatensatz insbesondere dann eine gute
-Alternative dar, wenn der Präzision im Vergleich zum Recall eher wenig Bedeutung
+Alternative dar, wenn der Precision im Vergleich zum Recall eher wenig Bedeutung
 beigemessen wird. Dies ist zum Beispiel denkbar, wenn durch den Algorithmus eine 
 Vorauswahl an gefährdeten Patienten getroffen werden soll, die dann noch einmal
 gesondert ärztlich beurteilt wird.
@@ -1119,7 +1119,7 @@ und Recall =
 
 Idealerweise würde man die Modelle nun an einem komplett unabhängigen Testdatensatz
 (d. h. Daten aus einem anderen Krankenhaus und möglichst auch anderem Quellsystem)
-testen. Hier wird auf die eingangs abgespalteten Testdatensätze mit 25 % der
+testen. Hier wird auf die eingangs abgespaltenen Testdatensätze mit 25 % der
 Beobachtungen des ursprünglichen Samples zurückgegriffen - in dem Bewusstsein, 
 dass diese aus den gleichen Datenquellen stammen wie die Trainingsdaten. 
 \newline Hinsichtlich der Random Forests mit imputierten Daten stellt sich die
@@ -1766,7 +1766,7 @@ linearen Regression erfolgen.
 
 Mit diesem Ansatz haben alle untersuchten Modelle (CART-Entscheidungsbaum, Random
 Forests und Gradient Boosting Machine) ähnliche Ergebnisse hinsichtlich der
-F1-Metrik erreicht. Lediglich hinsichtlich der Präzision ist der CART-Algorithmus
+F1-Metrik erreicht. Lediglich hinsichtlich der Relevanz ist der CART-Algorithmus
 deutlich schlechter.
 \newline
 Als erfolgversprechendste Modelle zur weiteren Erprobung ergeben sich die
@@ -1790,7 +1790,7 @@ allem die Random Forests stark beeinflussen.
 
 Unabhängig davon, wie gut sich die Modelle verallgemeinern lassen, ist eine 
 weitere Verbesserung der Sensitivität, ohne dass es zu einer deutlichen
-Verschlechterung der Spezifität oder Präzision kommt, erstrebenswert. Zu diesem
+Verschlechterung der Spezifität oder Relevanz kommt, erstrebenswert. Zu diesem
 Zweck sollten weitere Strategien zum Umgang mit fehlenden Werten erprobt werden - 
 zum Beispiel multiple Imputation, aber möglichst auch die Erhöhung des Füllgrads 
 zumindest einiger Prädiktoren (beispielsweise im Rahmen von Kooperationen).
