@@ -1136,9 +1136,15 @@ wären Imputataionsverfahren möglich, die kein Label voraussetzen.
 Die Tests führen zu folgenden Konfusionsmatrizen:
 
 ```{r model test confusion matrices}
+# Speichern als png nötig für Skalierung der  Statistikbox
+
+# Unterordner zum Abspeichern anlegen, falls noch nicht vorhanden
+if (!exists("figures")) {
+  dir.create("figures")
+}
+
 pred_cart_ds1 <- predict(cart_ds1, test1)
 
-# speichern als png nötig für Skalierung der  Statistikbox
 png("figures/cf_plot1.png")   
 binary_visualiseR(train_labels = pred_cart_ds1,
                                truth_labels = test1$Sepsis,
