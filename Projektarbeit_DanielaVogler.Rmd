@@ -31,7 +31,7 @@ header-includes:
   - \usepackage{hyphenat}
   - \hyphenation{Ent-wicklung Event-rate Intensiv-aufent-halts er-reicht
         Intensiv-station Intensiv-stationen Visua-lisierung er-klärender
-        Datenaufberei-tung}
+        Datenaufberei-tung Analy-sis}
   - \floatplacement{figure}{H}
 bibliography: bibliography.bib
 csl: din-1505-2.csl
@@ -594,7 +594,7 @@ cart_ds1 <- train(x = train1[,4:41],
 ```
 
 Das beste Modell ergibt sich mit: 
-`r knitr::kable(cart_ds1$bestTune, row.names = FALSE)`
+`r knitr::kable(cart_ds1$bestTune, "latex", row.names = FALSE)`
 
 Abbildung \ref{cart_ds1} zeigt den entstandenen Baum. In den Blättern sind die 
 vorhergesagte Klasse, die zugehörige Wahrscheinlichkeit (d. h. der Anteil der 
@@ -667,7 +667,7 @@ rf_ds1 <- train(x = train1_imputed[,4:41],
 ```
 
 Das beste Modell hat folgende Parameter:
-`r knitr::kable(rf_ds1$bestTune, row.names = FALSE)`
+`r knitr::kable(rf_ds1$bestTune, "latex", row.names = FALSE)`
 
 Als weiterer Ansatz wird nun der Datensatz auf diejenigen Prädiktoren mit weniger
 als $\nobreak 30\ \%$ fehlenden Werten eingeschränkt und anschließend nur die
@@ -708,7 +708,7 @@ rf_nm_ds1 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
 ``` 
 
  Das bestes Modell ergibt sich mit: 
-`r knitr::kable(rf_nm_ds1$bestTune, row.names = FALSE)`
+`r knitr::kable(rf_nm_ds1$bestTune, "latex", row.names = FALSE)`
 
 Während Random Forests Bäume durch Bagging kombinieren und damit insbesondere
 die Korrelation zwischen den einzelnen Bäumen verringern, zielen auf Boosting
@@ -743,7 +743,7 @@ gbm_ds1 <- train(x = train1[,4:41],
 ```
 
 Das beste Modell ergibt sich mit folgenden Parametern:
-`r knitr::kable(gbm_ds1$bestTune, row.names = FALSE)`
+`r knitr::kable(gbm_ds1$bestTune, "latex", row.names = FALSE)`
 
 ## Der Onset-Ansatz
 
@@ -763,7 +763,7 @@ cart_ds2 <- train(x = train2[,4:41],
 ```
 
 Aus dem CART-Algorithmus ergibt sich das beste Modell mit: 
-`r knitr::kable(cart_ds2$bestTune, row.names = FALSE)`
+`r knitr::kable(cart_ds2$bestTune, "latex", row.names = FALSE)`
 
 ```{r cart model results ds2, include = TRUE, fig.cap="\\label{cart_ds2}Entscheidungsbaum Onset-Datensatz"}
 rpart.plot(cart_ds2$finalModel, type = 5, extra = 108, box.palette = "RdBu")
@@ -809,7 +809,7 @@ rf_ds2 <- train(x = train2_imputed[,4:41],
 ```
 
 Das beste Modell entsteht mit: 
-`r knitr::kable(rf_ds2$bestTune, row.names = FALSE)`
+`r knitr::kable(rf_ds2$bestTune, "latex", row.names = FALSE)`
 
 Nun folgt die Einschränkung auf Prädiktoren mit weniger als 30 % fehlenden Werten
 und vollständige Beobachtungen.
@@ -847,7 +847,7 @@ rf_nm_ds2 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
 ```
 
 Das beste Modell hat die Parameter: 
-`r knitr::kable(rf_nm_ds2$bestTune, row.names = FALSE)`
+`r knitr::kable(rf_nm_ds2$bestTune, "latex", row.names = FALSE)`
 
 Und für die Gradient Boosting Machine ergibt sich schließlich:
 
@@ -864,7 +864,7 @@ gbm_ds2 <- train(x = train2[,4:41],
                  verbose = FALSE)
 ```
 
- `r knitr::kable(gbm_ds2$bestTune, row.names = FALSE)`
+ `r knitr::kable(gbm_ds2$bestTune, "latex", row.names = FALSE)`
 
 ## Der Regressionsansatz
 
@@ -881,7 +881,7 @@ cart_ds3 <- train(x = train3[,3:40],
                   trControl = ctrl)
 ```
 
- `r knitr::kable(cart_ds3$bestTune, row.names = FALSE)`
+ `r knitr::kable(cart_ds3$bestTune, "latex", row.names = FALSE)`
 
 ```{r cart model results ds3, include = TRUE, fig.cap="\\label{cart_ds3}Entscheidungsbaum Regressionsdatensatz"}
 rpart.plot(cart_ds3$finalModel, type = 5, extra = 108, box.palette = "RdBu")
@@ -925,7 +925,7 @@ rf_ds3 <- train(x = train3_imputed[,3:40],
                 trControl = ctrl)
 ```
 
-`r knitr::kable(rf_ds3$bestTune, row.names = FALSE)`
+`r knitr::kable(rf_ds3$bestTune, "latex", row.names = FALSE)`
 
 Random Forests nach Einschränkung der Prädiktoren und auf vollständige
 Beobachtungen ergeben:
@@ -962,7 +962,7 @@ rf_nm_ds3 <- train(Sepsis ~ . - Patient_ID - Sepsis,
                   trControl = ctrl)
 ```
 
-`r knitr::kable(rf_nm_ds3$bestTune, row.names = FALSE)`
+`r knitr::kable(rf_nm_ds3$bestTune, "latex", row.names = FALSE)`
 
 Und Gradient Boosting führt hier zu den Parametern:
 
@@ -979,9 +979,7 @@ gbm_ds3 <- train(x = train3[,3:40],
                  verbose = FALSE)
 ```
 
-`r knitr::kable(gbm_ds3$bestTune, row.names = FALSE)`
-
-\newpage
+`r knitr::kable(gbm_ds3$bestTune, "latex", row.names = FALSE)`
 
 ## Vergleich der Modelle
 
@@ -1010,38 +1008,40 @@ Verbesserung der Vorhersagequalität als vielmehr dem Auffinden relevanter
 Kriterien dienen sollen.
 
 ```{r resamples F statistics, include = TRUE}
-knitr::kable(summary(results)$statistics$F, 
+knitr::kable(summary(results)$statistics$F,
+             format = "latex",
              booktabs = T, 
              caption = "F-Metrik") %>%
-  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+  kable_styling(latex_options = c("striped", "scale_down"),
                 position = "center")
 ```
 
 ```{r resamples AUC statistics, include = TRUE}
-knitr::kable(summary(results)$statistics$AUC, 
+knitr::kable(summary(results)$statistics$AUC,
+             format = "latex",
              booktabs = T, 
              caption = "AUC") %>%
-  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+  kable_styling(latex_options = c("striped", "scale_down"),
                 position = "center")
 ```
 
 ```{r resamples precision statistics, include = TRUE}
-knitr::kable(summary(results)$statistics$Precision, 
+knitr::kable(summary(results)$statistics$Precision,
+             format = "latex",
              booktabs = T, 
              caption  = "Precision") %>%
-  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+  kable_styling(latex_options = c("striped", "scale_down"),
                 position = "center")
 ```
 
 ```{r resamples recall statistics, include = TRUE}
-knitr::kable(summary(results)$statistics$Recall, 
+knitr::kable(summary(results)$statistics$Recall,
+             format = "latex",
              booktabs = T, 
              caption  = "Recall") %>%
-  kable_styling(latex_options = c("striped", "scale_down", "hold_position"),
+  kable_styling(latex_options = c("striped", "scale_down"),
                 position = "center")
 ```
-
-\clearpage
 
 ```{r resamples plot, include = TRUE, fig.cap="Modellvergleich"}
 dotplot(results, cex.axis = 1)
@@ -1623,7 +1623,7 @@ function(forest, data, variable1, variable2, grid = 100,
 ```
 
 ```{r interaction plot, include = TRUE, fig.cap="Vorhersage-Interaktion zwischen Bilirubin und Kohlendioxidwert im Random Forest (Regressionsdatensatz)"}
-plot_predict_interaction.caret_ranger(rf_ds3$finalModel,train3_imputed, 
+plot_predict_interaction.caret_ranger(rf_ds3$finalModel,train3_imputed,
                                       "slope_Bilirubin_total", "slope_EtCO2",
                                       main = "")
 ```
@@ -1820,21 +1820,22 @@ Diese Arbeit wurde mit "`r sessioninfo::platform_info()$version`" unter Verwendu
 folgender Pakete erstellt:
 
 ```{r session info, include = TRUE, cache = FALSE}
-knitr::kable(subset(data.frame(sessioninfo::package_info()), 
-                    attached == TRUE, 
+knitr::kable(subset(data.frame(sessioninfo::package_info()),
+                    attached == TRUE,
                     c(loadedversion)),
-              col.names = "Version") 
+              format = "latex",
+              col.names = "Version")
 ```
 
 ```{r vars description, include = TRUE, cache = FALSE}
-knitr::kable(var_info, booktabs = T,
+knitr::kable(var_info, format = "latex", booktabs = T,
              caption = "\\label{vars_table}Datensatzbeschreibung (Variablen)") %>%
   kable_styling(latex_options = c("striped", "scale_down"),
-                position = "center") %>% 
+                position = "center") %>%
   kableExtra::pack_rows("Technische Angaben", 1, 2) %>%
   kableExtra::pack_rows("Vitalparameter", 3, 10) %>%
-  kableExtra::pack_rows("Blutwerte", 11, 36) %>% 
-  kableExtra::pack_rows("Basisdaten & Outcome", 37, 44) 
+  kableExtra::pack_rows("Blutwerte", 11, 36) %>%
+  kableExtra::pack_rows("Basisdaten & Outcome", 37, 44)
 ```
 
 \newpage
