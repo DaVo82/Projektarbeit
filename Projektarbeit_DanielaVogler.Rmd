@@ -170,7 +170,7 @@ Failure Assessment (SOFA)
 - dem Zeitpunkt, zu dem sich ein konkreter klinischer Verdacht auf eine Infektion
 in einer intravenösen Antibiotikagabe und dem Anlegen von Blutkulturen
 widerspiegelt. 
-\newline Zu den Details siehe [@Reyna].
+\newline Zu den Details siehe @Reyna.
 
 ```{r data structure}
 summary(data_sample)
@@ -307,7 +307,7 @@ data_sample <- data_sample %>%
 Bei Betrachtung der Boxplots der möglichen numerischen Einflussfaktoren fällt 
 keine Variable durch besonders deutliche Unterschiede zwischen Patienten mit und 
 ohne Sepsis auf.
-
+\newline
 Da schwerwiegende Erkrankungen durchaus extreme medizinische Werte hervorbringen 
 können, ist es schwierig festzulegen, wann Ausreißer Messfehler sind und daher 
 aus der Betrachtung herausgenommen werden sollten. Zudem sind baumbasierte 
@@ -362,12 +362,11 @@ Zum einen ist die Anzahl fehlender Werte in vielen Variablen sehr hoch. Dies
 gilt auch nach der bereits aufgrund von fachlichen Überlegungen erfolgten 
 LOCF-Imputation einiger Prädiktoren weiterhin. Während der CART-Algorithmus zum
 Anpassen von Entscheidungsbäumen solche Situationen intern durch Surrogate Splits
-handhabt, müssen für viele andere Varianten von Entscheidungsbäumen und
+handhabt, müssen für einige andere Varianten von Entscheidungsbäumen und
 Ensemblemethoden entweder fehlende Daten imputiert oder der Datensatz auf
-vollständige Beobachtungen eingeschränkt werden.Dies gilt zum Beispiel für die
-Anwendung von Random Forests. Gradient Boosting Machines wiederum behandeln 
-fehlende Werte intern, indem sie diese als eigene Klasse beziehungsweise Wert
-definieren.
+vollständige Beobachtungen eingeschränkt werden. Dies gilt zum Beispiel für
+Random Forests. Gradient Boosting Machines wiederum behandeln fehlende Werte
+intern, indem sie diese als eigene Klasse beziehungsweise Wert definieren.
 \newline
 Der geeignete Umgang mit fehlenden Daten hängt stark davon ab, welcher Mechanismus
 dem Fehlen zugrunde liegt. Imputationsmethoden setzen grundsätzlich mindestens
@@ -413,7 +412,7 @@ der Entwicklung einer Sepsis am nächsten war.
 Intensivpatienten anhand ihrer jeweils aktuellen klinischen Parameter.
 
 **3. Regressionsdatensatz:** Für jeden Patienten wird mittels linearer Regression 
-die Entwicklung jeder zeitabhängigen Prädiktorvariable modelliert und der
+die Entwicklung jeder zeitabhängigen Prädiktorvariablen modelliert und der
 patientenindividuelle Slope als Prädiktor verwendet. Dabei wird für
 Nicht-Sepsispatienten der gesamte Beobachtungszeitraum einbezogen und für
 Sepsispatienten der Zeitraum bis zum ersten positiven Outcome.
@@ -564,7 +563,7 @@ positiven an den Events als auch den Anteil der richtig positiven an den insgesa
 positiv klassifizierten Beobachtungen, kann aber leicht so verallgemeinert werden,
 dass entweder der Recall (= Sensitivität) oder die Precision (deutsch: Relevanz)
 stärker gewichtet wird. Eine flexible Anpassung beispielsweise im Rahmen einer
-späteren klinischen Anwendung ist also gegeben.
+späteren klinischen Anwendung ist somit gegeben.
 
 ```{r caret models control}
 set.seed(12345)
@@ -607,7 +606,7 @@ rpart.plot(cart_ds1$finalModel, type = 5, extra = 108, box.palette = "RdBu")
 ```
 
 Dass die Zeitspanne zwischen Krankenhausaufnahme und Verlegung auf die ITS
-$\nobreak (*HospAdmTime*)$ eine Rolle spielt, erscheint einleuchtend. Da hier 
+(*$\nobreak HospAdmTime$*) eine Rolle spielt, erscheint einleuchtend. Da hier 
 jedoch gar keine weiteren Variablen herangezogen werden, wird noch ein Baum ohne
 *HospAdmTime* angepasst, um weitere Einblicke zu generieren. Dieser wird mit
 Defaultparametern allerdings so tief, dass er nachträglich geprunt werden muss, 
@@ -638,9 +637,9 @@ Tunegrid:
 
 ```{r tune grid rf, include = TRUE, echo = TRUE}
 rf_grid <- expand.grid(
-  .mtry = seq(2,35,3),
-  .splitrule = "gini",
-  .min.node.size = seq(5, 20, 5)
+  mtry = seq(2,35,3),
+  splitrule = "gini",
+  min.node.size = seq(5, 20, 5)
 )
 ```
 
@@ -691,9 +690,9 @@ n_var1 <- train1_2 %>%
   ncol()
   
 rf_grid1 <- expand.grid(
-  .mtry = seq(2, n_var1 - 1 ,3),
-  .splitrule = "gini",
-  .min.node.size = seq(5, 20, 5)
+  mtry = seq(2, n_var1 - 1 ,3),
+  splitrule = "gini",
+  min.node.size = seq(5, 20, 5)
 )
 
 rf_nm_ds1 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
@@ -713,9 +712,9 @@ rf_nm_ds1 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
 Während Random Forests Bäume durch Bagging kombinieren und damit insbesondere
 die Korrelation zwischen den einzelnen Bäumen verringern, zielen auf Boosting
 zurückgreifende Ensemble-Verfahren darauf, sukzessive die Vorhersagen für falsch
-klassifizierte Beobachtungen zu verbessern. Hier wird nun zum Vergleich ein 
-Stochastic Gradient Boosting mit dem R-Paket *gbm* durchgeführt. Dafür wird das 
-Tunegrid wie folgt definiert:
+klassifizierte Beobachtungen zu verbessern. Hier wird nun ein Stochastic Gradient
+Boosting mit dem R-Paket *gbm* durchgeführt. Dafür wird das Tunegrid wie folgt
+definiert:
 
 ```{r tune grid gbm, include = TRUE, echo = TRUE}
 gbm_grid <-  expand.grid(interaction.depth = seq(1, 9, 2),
@@ -830,9 +829,9 @@ n_var2 <- train2_2 %>%
   ncol()
   
 rf_grid2 <- expand.grid(
-  .mtry = seq(2, n_var2 - 1, 3),
-  .splitrule = "gini",
-  .min.node.size = seq(5, 20, 5)
+  mtry = seq(2, n_var2 - 1, 3),
+  splitrule = "gini",
+  min.node.size = seq(5, 20, 5)
 )
 
 rf_nm_ds2 <- train(Sepsis ~ . - Patient_ID - X - Hour - Sepsis,
@@ -946,9 +945,9 @@ n_var3 <- train3_2 %>%
   ncol()
   
 rf_grid3 <- expand.grid(
-  .mtry = seq(2, n_var3 - 1, 3),
-  .splitrule = "gini",
-  .min.node.size = seq(5, 20, 5)
+  mtry = seq(2, n_var3 - 1, 3),
+  splitrule = "gini",
+  min.node.size = seq(5, 20, 5)
 )
 
 rf_nm_ds3 <- train(Sepsis ~ . - Patient_ID - Sepsis,
@@ -1131,7 +1130,7 @@ alle Beobachtungen für die Imputation vorübergehend mit einem negativen Label
 versehen, d. h. mit dem bisher angenommenen Status (in dem Sinne, dass bereits 
 als Sepsisfälle diagnostizierte Patienten nicht mehr klassifiziert werden müssten).
 Dann wird, wie auch beim Training des Modells, *rfImpute* angewendet. Alternativ 
-wären Imputataionsverfahren möglich, die kein Label voraussetzen.
+wären Imputationsverfahren möglich, die kein Label voraussetzen.
 
 Die Tests führen zu folgenden Konfusionsmatrizen:
 
@@ -1439,7 +1438,7 @@ Variablen erreicht werden kann.
 ## Entscheidungsregeln und Einfluss einzelner Prädiktoren
 
 Die Plots am Ende dieses Abschnitts stellen die Variablenwichtigkeit der einzelnen
-Modelle dar. Dabei erhält die jeweils wichtigste Variable eine Score von 100 und 
+Modelle dar. Dabei erhält die jeweils wichtigste Variable einen Score von 100 und 
 die weiteren Variablen werden in Relation dazu bewertet. Kriterium ist die
 Verbesserung hinsichtlich des Gini-Unreinheitsmaßes.
 
@@ -1493,26 +1492,26 @@ Bei dem auf dem Testdatensatz wegen seiner sehr hohen Spezifität positiv
 aufgefallenen Modell, dem Random Forest nach Imputation auf dem
 Regressionsdatensatz, zeichnet sich ein klareres Bild ab. Hier ist der Slope des
 endtidalen Kohlendioxids (*EtCO2*) die mit Abstand zweitwichtigste Variable.
-Zu beachten ist auch, dass an dritter Stelle der Slope des *Bilirubin_total* 
-folgt (der Variable, die im Random Forest des Onset-Datensatzes als wichtigste
-bestimmt wurde), denn wie aus Abbildung \ref{cor_plot} ersichtlich ist, korreliert
-*Bilirubin_total* vollständig mit dem aus unseren Daten entfernten
-*Bilirubin_direct* und letzteres korreliert deutlich negativ mit *EtCO2*. Der
-Korrelationskoeffizient für *EtCO2* und *Bilirubin_total* selbst ist wenig
-aussagekräftig, weil es kaum Beobachtungen gibt, die für beide Variablen Werte
-aufweisen. Wie im Kapitel zur Datenexploration bereits erwähnt, ist es möglich,
-dass für einen Split nicht die eigentlich relevante Variable herangezogen wird,
-sondern eine mit ihr korrelierende. Das könnte bedeuten, dass nur einer der beiden
-hier diskutierten Prädiktoren wirklich bedeutsam für den Random Forest ist, dies
-aber in umso höherem Maße. Falls dies zutrifft, ist zu erwarten, dass entweder 
-ein negativer *EtCO2*-Slope (Verringerung des Werts) und ein positiver
-*Bilirubin_total*-Slope (Erhöhung des Werts) die Vorhersagewahrscheinlichkeit 
-einer Sepsis erhöhen oder genau andersherum. Um dies zu untersuchen, soll ein
-Vorhersage-Interaktions-Plot der beiden Variablen auf dem Modell betrachtet 
-werden. Eine Funktion, um einen solchen Plot zu erstellen, ist im R-Paket
-*randomForestExplainer* enthalten. Allerdings funktioniert diese nicht für
-*ranger*-Objekte, die aus einem *caret::train*-Objekt extrahiert wurden. Daher
-wurde der Code hier leicht modifiziert. Die Änderungen befinden sich in den
+Zu beachten ist auch, dass an dritter Stelle der Slope des  
+*$\nobreak Bilirubin\_total$* folgt (der Variable, die im Random Forest des
+Onset-Datensatzes als wichtigste bestimmt wurde), denn wie aus Abbildung
+\ref{cor_plot} ersichtlich ist, korreliert *Bilirubin_total* vollständig mit dem
+aus unseren Daten entfernten *Bilirubin_direct* und letzteres korreliert deutlich
+negativ mit *EtCO2*. Der Korrelationskoeffizient für *EtCO2* und *Bilirubin_total*
+selbst ist wenig aussagekräftig, weil es kaum Beobachtungen gibt, die für beide
+Variablen Werte aufweisen. Wie im Kapitel zur Datenexploration bereits erwähnt, 
+ist es möglich, dass für einen Split nicht die eigentlich relevante Variable
+herangezogen wird, sondern eine mit ihr korrelierende. Das könnte bedeuten, dass
+nur einer der beiden hier diskutierten Prädiktoren wirklich bedeutsam für den
+Random Forest ist, dies aber in umso höherem Maße. Falls dies zutrifft, ist zu
+erwarten, dass entweder ein negativer *EtCO2*-Slope (Verringerung des Werts) und
+ein positiver *Bilirubin_total*-Slope (Erhöhung des Werts) die
+Vorhersagewahrscheinlichkeit einer Sepsis erhöhen oder genau andersherum. Um dies
+zu untersuchen, soll ein Vorhersage-Interaktions-Plot der beiden Variablen auf 
+dem Modell betrachtet werden. Eine Funktion, um einen solchen Plot zu erstellen,
+ist im R-Paket *randomForestExplainer* enthalten. Allerdings funktioniert diese
+nicht für *ranger*-Objekte, die aus einem *caret::train*-Objekt extrahiert wurden.
+Daher wurde der Code hier leicht modifiziert. Die Änderungen befinden sich in den
 Codezeilen 12, 13 und 44 (wobei die Änderung in Zeile 44 nicht zwingend notwendig
 ist):
 
@@ -1647,8 +1646,8 @@ Die CART-Bäume wurden hauptsächlich mit dem Ziel angepasst, Entscheidungsregel
 beziehungsweise -pfade abzuleiten. Da die aus dem Tuning entstandenen Bäume nur 
 die Dauer des Intensivaufenthalts beziehungsweise die Zeit von der Hospitalisierung
 bis zur Verlegung auf die Intensivstation abbilden, ist aus ihnen außer den 
-bereits ausgeführten Überlegungen zu diesen Variablen nicht viel ersichtlich. 
-Die Auswertungen der Variablenwichtigkeit und die weiteren generierten
+bereits ausgeführten Überlegungen zu diesen Variablen nichts ersichtlich. Die
+Auswertungen der Variablenwichtigkeit und die weiteren generierten
 Entscheidungsbäume, denen die jeweilige zuvor stärkste Variable entzogen wurde,
 lassen jedoch vermuten, dass eine erhöhte Körpertemperatur (*Temp*), ein niedriger 
 oder fallender Blutdruck (*MAP*, *DBP*, *SBP*), eine hohe Atemfrequenz (*Resp*)
@@ -1827,7 +1826,7 @@ knitr::kable(subset(data.frame(sessioninfo::package_info()),
               col.names = "Version")
 ```
 
-```{r vars description, include = TRUE, cache = FALSE}
+```{r vars description, include = TRUE}
 knitr::kable(var_info, format = "latex", booktabs = T,
              caption = "\\label{vars_table}Datensatzbeschreibung (Variablen)") %>%
   kable_styling(latex_options = c("striped", "scale_down"),
