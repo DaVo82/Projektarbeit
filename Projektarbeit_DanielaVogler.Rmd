@@ -1815,26 +1815,34 @@ beispielsweise neuronalen Netzen.
 
 # Anhang
 
-Diese Arbeit wurde mit "`r sessioninfo::platform_info()$version`" unter Verwendung
-folgender Pakete erstellt:
-
-```{r session info, include = TRUE, cache = FALSE}
-knitr::kable(subset(data.frame(sessioninfo::package_info()),
-                    attached == TRUE,
-                    c(loadedversion)),
-              format = "latex",
-              col.names = "Version")
-```
-
-```{r vars description, include = TRUE}
+```{r vars description, include = TRUE, fig.pos = "H"}
 knitr::kable(var_info, format = "latex", booktabs = T,
              caption = "\\label{vars_table}Datensatzbeschreibung (Variablen)") %>%
-  kable_styling(latex_options = c("striped", "scale_down"),
+  kable_styling(latex_options = c("striped", "scale_down", "HOLD_position"),
                 position = "center") %>%
   kableExtra::pack_rows("Technische Angaben", 1, 2) %>%
   kableExtra::pack_rows("Vitalparameter", 3, 10) %>%
   kableExtra::pack_rows("Blutwerte", 11, 36) %>%
   kableExtra::pack_rows("Basisdaten & Outcome", 37, 44)
+```
+
+\newpage
+
+Diese Arbeit wurde mit "`r sessioninfo::platform_info()$version`" unter Verwendung
+folgender Pakete erstellt:
+
+```{r session info, include = TRUE, cache = FALSE, fig.pos = "H"}
+pkgs <- data.frame(sessioninfo::package_info())[c("package", "loadedversion")]
+
+n <- nrow(pkgs)
+n2 <- ceiling(n/3)
+n3 <- 2*n2
+
+knitr::kable(list(pkgs[1:n2,], pkgs[(n2 + 1):n3,], pkgs[(n3 + 1):n,]),
+             format = "latex",
+             row.names = FALSE,
+             col.names = c("Paket", "Version")) %>% 
+  kable_styling(font_size = 7, latex_options = "HOLD_position")
 ```
 
 \newpage
