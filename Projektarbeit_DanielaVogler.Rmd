@@ -553,7 +553,7 @@ ist in solchen Situationen die *Area under the Curve (ROC)*. Für stark
 unausgewogene Daten (mit niedriger Eventrate) sind aber Metriken, die auf 
 Precision und Recall beruhen, von Vorteil. Daher bieten sich hier die 
 *Area under the Precision Recall Curve (AUC)* und die F1-Metrik (harmonisches
-Mittel aus Precision und Recall) an. [@Brownlee]
+Mittel aus Precision und Recall) an (inspiriert von @Brownlee).
 
 Wir werden später beim Modellvergleich sehen, dass die AUC-Metrik im Vergleich zur
 F1-Metrik falsch positive Klassifizierungen stärker bestraft und dafür eine
@@ -1653,7 +1653,7 @@ lassen jedoch vermuten, dass eine erhöhte Körpertemperatur (*Temp*), ein niedr
 oder fallender Blutdruck (*MAP*, *DBP*, *SBP*), eine hohe Atemfrequenz (*Resp*)
 sowie eine hohe Herzfrequenz (*HR*) Anzeichen für eine beginnende Sepsis sein 
 können. Dies deckt sich in etwa mit Teilen der obligaten Diagnosekriterien nach
-[@Werdan] und allgemein üblichen SIRS-Kriterien.
+@Werdan und allgemein üblichen SIRS-Kriterien.
 \newline
 Abbildung \ref{cart_adj_ds3} zeigt außerdem ein komplexes Zusammenspiel
 verschiedener Blutwerte, die in einem Zusammenhang mit Entzündungsreaktionen oder 
