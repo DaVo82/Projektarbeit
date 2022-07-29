@@ -1,6 +1,6 @@
 ---
 title: "Detektion von Sepsiserkrankungen in Intensivpatienten"
-subtitle: "Projektarbeit im Zertifikatsprogramm \"Medical Data Science\""
+subtitle: "Projektarbeit im Zertifikatsprogramm \"Medical Data Science\"  \n des Universitätsklinikums Heidelberg"
 author: "Daniela Vogler"
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 output: 
@@ -237,7 +237,8 @@ outcome <- outcome %>%
          )  # "positiv" muss 1. Klasse sein, damit caret später die Gütemaße 
             # geeignet zuordnet            
 
-# Zur weiteren Verwendung wird jedem Datensatz der Outcome über den gesamten Zeitraum hinzugefügt
+# Zur weiteren Verwendung wird jedem Datensatz der Outcome über den gesamten
+# Zeitraum hinzugefügt
 data_sample <- merge(data_sample, outcome, by = "Patient_ID")
 ```
 
@@ -416,7 +417,8 @@ die Entwicklung jeder zeitabhängigen Prädiktorvariablen modelliert und der
 patientenindividuelle Slope als Prädiktor verwendet. Dabei wird für
 Nicht-Sepsispatienten der gesamte Beobachtungszeitraum einbezogen und für
 Sepsispatienten der Zeitraum bis zum ersten positiven Outcome.
-\newline Dies entspricht einer regelmäßigen Klassifizierung der Patienten anhand 
+\newline 
+Dies entspricht einer regelmäßigen Klassifizierung der Patienten anhand 
 aller ihrer bis zu diesem Zeitpunkt vorliegenden Parameter.
 
 Die drei entstandenen Datensätze werden anschließend jeweils in einen Trainings-
@@ -758,7 +760,6 @@ cart_ds2 <- train(x = train2[,4:41],
                   method = "rpart",
                   metric = "F",
                   trControl = ctrl)
-
 ```
 
 Aus dem CART-Algorithmus ergibt sich das beste Modell mit: 
@@ -779,7 +780,6 @@ cart_adj_ds2 <- train(x = train2[,4:40],
                   method = "rpart",
                   metric = "F",
                   trControl = ctrl)
-
 ```
 
 ```{r cart model adjusted results ds2, include = TRUE, fig.cap="Entscheidungsbaum Onset-Datensatz angepasst"}
@@ -1636,11 +1636,11 @@ Hyperventilation in der Frühphase einer Sepsis in Verbindung gebracht, ein
 Anstieg des Bilirubin-Werts hingegen mit einem Leberversagen in der Spätphase der 
 Erkrankung. Insofern erscheint Bilirubin zur frühen Detektion von Sepsen
 nicht gut geeignet. Stellt man allerdings einen Bilirubinanstieg fest, nachdem 
-zuvor schon der Kohlendioxidwert gesunken war, so kann dies als ernster Hinweis
-auf eine fortschreitende Sepsis angesehen werden.\footnote{ \label{note1} basierend
-auf einer Diskussion mit Dr. med. Ulf Dennler, Leiter der Stabsstelle Strategisches
-Medizincontrolling am Universitätsklinikum Ulm, Intensivmediziner, dem ich hiermit
-für seinen Beitrag danke.}
+zuvor bereits der Kohlendioxidwert gesunken war, so kann dies als ernster Hinweis
+auf eine fortschreitende Sepsis angesehen werden.\footnote{ \label{note1}
+Medizinische Einordnung basierend auf einer Diskussion mit Dr. med. Ulf Dennler,
+Leiter der Stabsstelle Strategisches Medizincontrolling am Universitätsklinikum
+Ulm, Intensivmediziner, dem ich hiermit für seinen Beitrag danke.}
 
 Die CART-Bäume wurden hauptsächlich mit dem Ziel angepasst, Entscheidungsregeln
 beziehungsweise -pfade abzuleiten. Da die aus dem Tuning entstandenen Bäume nur 
