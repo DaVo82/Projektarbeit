@@ -99,7 +99,7 @@ maschinellen Unterstützung ärztlicher Entscheidungen abzulesen sind.
 Die bearbeitete Fragestellung lässt sich wie folgt zusammenfassen: 
 \newline
 1. Welche Entscheidungskriterien hinsichtlich einer Klassifizierung von
-Intensivpatienten in die Kategorien "Sepsispatient" und "Nicht-Sepsispatient"
+Intensivpatienten in die Kategorien "Sepsis positiv" und "Sepsis negativ"
 lassen sich mittels einzelner Entscheidungsbäume ableiten?
 \newline
 2. Welches baumbasierte Modell ist am besten geeignet, um aus demografischen 
